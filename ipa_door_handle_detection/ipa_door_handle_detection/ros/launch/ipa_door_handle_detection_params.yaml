@@ -1,0 +1,7 @@
+width_black_box: 0.43
+length_black_box: 0.30
+height_black_box: 0.225
+
+pixel_size: 0.01
+
+tolerance: 0.0075

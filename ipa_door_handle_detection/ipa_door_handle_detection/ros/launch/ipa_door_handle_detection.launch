@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <!--<include file="$(find astra_launch)/launch/astra.launch">
+    </include> -->
+    <node pkg="ipa_door_handle_detection" type="ipa_door_handle_detection" name="rectangle_detection" output="screen">
+    <rosparam command="load" file="$(find ipa_door_handle_detection)/ros/launch/ipa_door_handle_detection_params.yaml"/>
+    </node>
+
+</launch>
