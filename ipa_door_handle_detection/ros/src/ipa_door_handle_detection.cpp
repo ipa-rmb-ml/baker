@@ -1,7 +1,6 @@
 #include <ipa_door_handle_detection.h>
 
 
-
 PointCloudImport::PointCloudImport(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg) :
 		nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 {
@@ -28,49 +27,58 @@ PointCloudImport::PointCloudImport(ros::NodeHandle nh, sensor_msgs::PointCloud2:
 }
 
 
-
-
 void PointCloudImport::pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg)
 {
-
 	//create new point cloud in pcl format: pointcloud_in_pcl_format
 	pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_in_pcl_format(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr published_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	//transform imported pointcloud point_cloud_msg to pointcloud_in_pcl_format
 	pcl::fromROSMsg(*point_cloud_msg, *pointcloud_in_pcl_format);
-	pointcloud_in_pcl_format->header.frame_id = "pointcloud_in_pcl_format";
-	//====change point cloud here======================================
 
-	//create new point cloud in pcl format: point_cloud_colored
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-	// apply color change and store the new pc in point_cloud_colored
-	point_cloud_colored = changePointCloudColor(pointcloud_in_pcl_format);
-	point_cloud_colored->header.frame_id = "colored_pc";
-
-	//create new point cloud in pcl format: point_cloud_plane
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_plane(new pcl::PointCloud<pcl::PointXYZRGB>);
-	point_cloud_plane = detectPlaneInPointCloud(point_cloud_colored);
-	point_cloud_plane->header.frame_id = "plane_pc";
-
-	// write result in final point cloud which is going to be published
-
-	//===changed point cloud===========================================
-
-	//transform point_cloud_colored too ROS message to publish it 
-	pcl::toROSMsg(*point_cloud_plane, *point_cloud_out_msg_);
+	// segment point cloud and detect planes
+	published_pc = segmentPointCloud(pointcloud_in_pcl_format);
 
 
-	// assigne header id: important to visualize in rviz 
+	// publish changed point cloud
+	pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
 	point_cloud_out_msg_->header.frame_id = "camera_link";
 	pub_.publish(point_cloud_out_msg_);
 
 }
 
 
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud)
+{
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr clustered_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+	pcl::ModelCoefficients::Ptr plane_coeff;
+
+	// PLANE DETECTION 
+	planeInformation planeData = detectPlaneInPointCloud(input_cloud);
+
+
+	plane_coeff = planeData.plane_coeff;
+	plane_pc = planeData.plane_point_cloud;
+
+	// coloredPC: PC colored in blue
+	// plane_pc: detected plane ccolored in red
+	// plane coeff: coeffs of the detected plane
+	segmented_pc=minimizePointCloudToObject(input_cloud,plane_pc,plane_coeff);
+	clustered_pc=findClustersByRegionGrowing(segmented_pc);
+
+ return segmented_pc;
+}	
+
+
+
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::changePointCloudColor(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud)
 {
 	 //std::cout << ">>> Starting PC color change." << std::endl;
-	uint8_t r = 0, g = 0, b = 255;
+	uint8_t r = 0, g = 0, b = r;
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud_xyzrgb(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointXYZRGB pclPoint;
@@ -95,78 +103,129 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::changePointCloudColor(p
 }
 
 
-
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
-{
-	
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_point_cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
-	pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-
-	// color of plane points
- 	uint8_t r = 255, g = 0, b = 0;
+ 	planeInformation PointCloudImport::detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud){
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::ExtractIndices<pcl::PointXYZ> extract;
 
 	pcl::ModelCoefficients::Ptr plane_coeff (new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 
 	// Create the segmentation object
-	pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+	pcl::SACSegmentation<pcl::PointXYZ> seg;
 	// Optional
 	seg.setOptimizeCoefficients (true);
 	// Mandatory
 	seg.setModelType (pcl::SACMODEL_PLANE);
 	seg.setMethodType (pcl::SAC_RANSAC);
 	seg.setDistanceThreshold (0.01);
-
 	seg.setInputCloud (input_cloud);
-	// get inliers
+	// get inliers and plane coeff
 	seg.segment (*inliers, *plane_coeff);
 
 
+	// iterater over inlier (pllane points) to color them red 
 	pcl::PointXYZRGB pclPoint_plane;
 
-
-	// visualize planes in red
 	for (size_t i = 0; i < inliers->indices.size (); ++i)
 	{
 		pclPoint_plane.x = input_cloud->points[inliers->indices[i]].x;
 		pclPoint_plane.y = input_cloud->points[inliers->indices[i]].y;
 		pclPoint_plane.z = input_cloud->points[inliers->indices[i]].z;
-		pclPoint_plane.r = r;
-		pclPoint_plane.b = g;
-		pclPoint_plane.g = b;
+		pclPoint_plane.r = 255;
+		pclPoint_plane.b = 0;
+		pclPoint_plane.g = 0;
 
-		segmented_point_cloud_rgb->points.push_back(pclPoint_plane);
+		plane_pc->points.push_back(pclPoint_plane);
 	}
 
+	planeInformation planeData;
+	planeData.plane_point_cloud = plane_pc;
+ 	planeData.plane_coeff = plane_coeff;
+
+
+	return planeData;
+
+}
+
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff){
+
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmented_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	// calculate point to plane distance
-
 	pcl::PointXYZRGB pp_PC;
-	double min_dist=0.1;
+	double min_dist = 0.05;
+	double max_dist = 0.15;
+
+	segmented_pc= plane_pc;
 
   	for (size_t i = 0; i < input_cloud->points.size (); ++i)
 	{
-
 		pp_PC.x = input_cloud->points[i].x;
 		pp_PC.y = input_cloud->points[i].y;
 		pp_PC.z = input_cloud->points[i].z;
 
-		double p2p_distance =  pcl::pointToPlaneDistanceSigned (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
+		double p2p_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
+	if (p2p_distance > min_dist){
+			if  (p2p_distance < max_dist){
 
-		if (p2p_distance > min_dist){
-
-			pp_PC.r = 0;																								
-			pp_PC.b = 255;
-			pp_PC.g =0;								
-
-			segmented_point_cloud_rgb->points.push_back(pp_PC);
-
+				pp_PC.r = 0;																								
+				pp_PC.b = 255;
+				pp_PC.g =0;								
+	
+				segmented_pc->points.push_back(pp_PC);
+			}
 		}
 	}
-
-	return segmented_point_cloud_rgb;
+	return segmented_pc;
 }
 
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudImport::findClustersByRegionGrowing(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr clustered_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+  pcl::search::Search<pcl::PointXYZRGB>::Ptr tree = boost::shared_ptr<pcl::search::Search<pcl::PointXYZRGB> > (new pcl::search::KdTree<pcl::PointXYZRGB>);
+
+  // computing normals
+  pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+  pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normal_estimator;	
+  normal_estimator.setSearchMethod (tree);
+  normal_estimator.setInputCloud (input_cloud);
+  normal_estimator.setKSearch (50);
+  normal_estimator.compute (*normals);
+
+  pcl::IndicesPtr indices (new std::vector <int>);
+  pcl::PassThrough<pcl::PointXYZRGB> pass;
+  pass.setInputCloud (input_cloud);
+  pass.setFilterFieldName ("z");
+  pass.setFilterLimits (0.0, 1.0);
+  pass.filter (*indices);
+
+
+  pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> reg;
+  reg.setMinClusterSize (5000);
+  reg.setMaxClusterSize (10000);
+
+
+  reg.setSearchMethod (tree);
+  reg.setNumberOfNeighbours (30);
+  reg.setInputCloud (input_cloud);
+  //reg.setIndices (indices);
+  reg.setInputNormals (normals);
+
+  reg.setSmoothnessThreshold (3.0 / 180.0 * M_PI);
+  reg.setCurvatureThreshold (1.0);
+
+  std::vector <pcl::PointIndices> clusters;
+  reg.extract (clusters);
+
+
+ // put into new function --> visualizing/counting clusters 
+  std::cout << "Number of clusters is equal to " << clusters.size () << std::endl;
+
+
+	return clustered_pc;
+}
 
 
 

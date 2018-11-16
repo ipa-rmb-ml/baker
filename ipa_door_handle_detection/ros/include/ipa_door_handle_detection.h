@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ros/ros.h>
+#include <utility>
 
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
@@ -21,30 +22,44 @@
 #include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
 
 
 #include <pcl/common/projection_matrix.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+
+
+#include <pcl/search/search.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/segmentation/region_growing.h>
 
 #include <boost/thread/mutex.hpp>
 
+struct planeInformation{
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_point_cloud;
+	pcl::ModelCoefficients::Ptr plane_coeff;
+	
+};
 
-class pointCloudImport
+
+class PointCloudImport
 {
 
 public:
-	pointCloudImport(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
+
+	PointCloudImport(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
 
 	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
 
 	//functions to change pointcloud
-	//change color of pc
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr changePointCloudColor(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
-	//detect planes of pc
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud);
 
-
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff);
+	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr findClustersByRegionGrowing(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud);
 
 private:
 	ros::Publisher pub_;
