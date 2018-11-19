@@ -76,9 +76,10 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 
-# image processing
+# door handle detection main
 add_executable(ipa_door_handle_detection
-    ros/src/ipa_door_handle_detection.cpp
+    ros/src/ipa_door_handle_detection_main.cpp
+   ros/src/ipa_door_handle_segmentation.cpp
 )
 
 add_dependencies(ipa_door_handle_detection
@@ -90,6 +91,7 @@ target_link_libraries(ipa_door_handle_detection
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
 )
+
 
 
 file(GLOB_RECURSE EXTRA_FILES */*)
