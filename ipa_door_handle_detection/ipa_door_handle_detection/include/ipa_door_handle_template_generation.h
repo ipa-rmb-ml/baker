@@ -3,6 +3,14 @@
 class PointCloudTemplateDatabase
 {
 public:
-private:
+
 	PointCloudTemplateDatabase();
+
+	writePCDFile();
+
+	readPCDFile();
+
+
+private:
+
 };

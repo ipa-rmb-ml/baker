@@ -22,12 +22,11 @@
 #include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
-
+#include <pcl/filters/project_inliers.h>
 
 #include <pcl/common/projection_matrix.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/sample_consensus/sac_model_plane.h>
-
 
 #include <pcl/search/search.h>
 #include <pcl/search/kdtree.h>
@@ -45,7 +44,7 @@
 	pcl::ModelCoefficients::Ptr plane_coeff;
 	};
 
-// class to perform segmentation procedures to differentiate btw door plane and object in the foreground
+// creates vector with pointclouds where each represents a cluster idintified by region growing
 class PointCloudSegmentation
 {
 public:
@@ -54,13 +53,25 @@ public:
 
 	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
 
-	//functions to change pointcloud
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
+	//main function og the segmentation class
+	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
+	
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr changePointCloudColor(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff);
+	// detect door plane in pointcloud
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr findClustersByRegionGrowing(pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc,pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc);
+
+	// removing all object points that are too distant from the door plane
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff);
+	
+	// apply region growing to identifie all cluster in front of the detected door
+	std::vector <pcl::PointIndices> findClustersByRegionGrowing(pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc);
+
+	// generate vector of pointclouds representing each of the cluster
+	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlignmentObject(std::vector <pcl::PointIndices> clusters,pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc,pcl::ModelCoefficients::Ptr plane_coeff);
+
+	// used to project cluster points on detected plane to remove all addition points of the point cloud
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr removePlaneOutlierByClusterOnPlaneProjection(pcl::PointXYZRGB clusterPoint,pcl::ModelCoefficients::Ptr plane_coeff);
 
 private:
 	ros::Publisher pub_;
@@ -68,5 +79,4 @@ private:
 	sensor_msgs::PointCloud2::Ptr point_cloud_out_msg_;
 	ros::Subscriber point_cloud_sub_;
 };
-
 
