@@ -49,9 +49,7 @@ class PointCloudSegmentation
 {
 public:
 
-	PointCloudSegmentation(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
-
-	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
+	PointCloudSegmentation();
 
 	//main function og the segmentation class
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
@@ -74,9 +72,5 @@ public:
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr removePlaneOutlierByClusterOnPlaneProjection(pcl::PointXYZRGB clusterPoint,pcl::ModelCoefficients::Ptr plane_coeff);
 
 private:
-	ros::Publisher pub_;
-	ros::NodeHandle nh_;
-	sensor_msgs::PointCloud2::Ptr point_cloud_out_msg_;
-	ros::Subscriber point_cloud_sub_;
 };
 
