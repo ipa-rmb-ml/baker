@@ -80,6 +80,7 @@ add_definitions(${PCL_DEFINITIONS})
 add_executable(ipa_door_handle_detection
     ros/src/ipa_door_handle_detection_main.cpp
    ros/src/ipa_door_handle_segmentation.cpp
+ros/src/ipa_start_detection.cpp
 )
 
 add_dependencies(ipa_door_handle_detection
