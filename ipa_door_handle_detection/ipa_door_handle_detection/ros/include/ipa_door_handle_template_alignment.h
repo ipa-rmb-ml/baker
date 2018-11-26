@@ -35,22 +35,17 @@
 #include <pcl/segmentation/region_growing.h>
 
 #include <boost/thread/mutex.hpp>
-
-// creates vector with pointclouds where each represents a cluster idintified by region growing
-class StartHandleDetection
+// based on PointCloudDataImport class 
+// generating the template databasa for various door handle types 
+class PointCloudTemplateDatabase
 {
 public:
 
-	StartHandleDetection(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
+PointCloudTemplateDatabase();
 
-	void initCameraNode(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLFiles(const std::string filePath);
 
-	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);	
 
 private:
-	ros::Publisher pub_;
-	ros::NodeHandle nh_;
-	sensor_msgs::PointCloud2::Ptr point_cloud_out_msg_;
-	ros::Subscriber point_cloud_sub_;
-};
 
+};
