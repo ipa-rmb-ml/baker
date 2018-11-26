@@ -4,6 +4,7 @@
 
 PointCloudSegmentation::PointCloudSegmentation()
 {
+
 }
 
 // main segmentation process including coloring the pointcloud and the plane detection
@@ -125,23 +126,34 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 	double min_dist = 0.05;
 	double max_dist = 0.15;
 
+
+	// height of door handle: due to DIN 85 cm to 105 cm
+	double min_height = 0.85;
+	double max_height = 1.05;
+
   	for (size_t i = 0; i < input_cloud->points.size (); ++i)
 	{
 		pp_PC.x = input_cloud->points[i].x;
 		pp_PC.y = input_cloud->points[i].y;
 		pp_PC.z = input_cloud->points[i].z;
 
-	// storing and coloring data from only outside the plane
-		double p2p_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
-	if (p2p_distance > min_dist){
-			if  (p2p_distance < max_dist){
+			// storing and coloring data from only outside the plane
+		
+		double point2plane_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
 
-				pp_PC.r = 0;																								
-				pp_PC.b = 255;
-				pp_PC.g =0;								
-	
-				reduced_pc->points.push_back(pp_PC);
-			}
+
+		// check if assumed door handle in height range
+		if ((pp_PC.z > min_height) && (pp_PC.z < max_height) )
+		{
+			if ((point2plane_distance > min_dist) && (point2plane_distance < max_dist))
+			{
+						pp_PC.r = 0;																								
+						pp_PC.b = 255;
+						pp_PC.g =0;								
+			
+						reduced_pc->points.push_back(pp_PC);				
+				}
+
 		}
 	}
 	return reduced_pc;
@@ -200,7 +212,7 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 		for (int numCluster =0; numCluster < clusters.size(); numCluster=numCluster +1)
 		{
 			// randomize cluster color in pc for visualization
-			uint8_t r,g,b;
+
 			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 				// iterate over points in cluster to color them in diferent colors
@@ -212,6 +224,7 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 					clusteredPP.x=reduced_pc->points[clusters[numCluster].indices[i]].x;
 					clusteredPP.y=reduced_pc->points[clusters[numCluster].indices[i]].y;
 					clusteredPP.z=reduced_pc->points[clusters[numCluster].indices[i]].z; 
+
 					clusteredPP.r =0;
 					clusteredPP.g =0;
 					clusteredPP.b =255;
@@ -227,13 +240,14 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 					clusteredPP_proj.z = cluster_pt_proj_pc->points[0].z;
 					clusteredPP_proj.r = 255;
 					clusteredPP_proj.g = 0;
-					clusteredPP_proj.b = 0;
+					clusteredPP_proj.b = 0;	
 					cluster_pc->points.push_back(clusteredPP_proj);
 				} 
 
 				clusterVec_pc.push_back(cluster_pc);
 
 		} // end clusters
+
 		std::cout << "Number of clusters: " << clusters.size () << std::endl;
 		return clusterVec_pc;
 
