@@ -78,9 +78,11 @@ add_definitions(${PCL_DEFINITIONS})
 
 # door handle detection main
 add_executable(ipa_door_handle_detection
-    ros/src/ipa_door_handle_detection_main.cpp
-   ros/src/ipa_door_handle_segmentation.cpp
-ros/src/ipa_start_detection.cpp
+    ros/src/ipa_door_handle_detection_main.cpp # main function to start handle detection
+    ros/src/ipa_start_detection.cpp 
+    ros/src/ipa_door_handle_segmentation.cpp
+    ros/src/ipa_door_handle_template_alignment.cpp
+    ros/src/ipa_template_generation.cpp
 )
 
 add_dependencies(ipa_door_handle_detection
@@ -90,6 +92,25 @@ add_dependencies(ipa_door_handle_detection
 target_link_libraries(ipa_door_handle_detection
         ${catkin_LIBRARIES}
         ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
+)
+
+
+
+
+# door handle detection main
+add_executable(ipa_template_generation
+    ros/src/ipa_template_generation.cpp
+    ros/src/ipa_door_handle_segmentation.cpp
+
+)
+
+add_dependencies(ipa_template_generation
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries(ipa_template_generation
+        ${catkin_LIBRARIES}
         ${PCL_LIBRARIES}
 )
 
