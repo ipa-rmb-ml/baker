@@ -233,22 +233,22 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 					cluster_pc->points.push_back(clusteredPP);
 
 					// removing point outside the cluster projection on the plane
-					cluster_pt_proj_pc=removePlaneOutlierByClusterOnPlaneProjection(clusteredPP,plane_coeff);
+				//	cluster_pt_proj_pc=removePlaneOutlierByClusterOnPlaneProjection(clusteredPP,plane_coeff);
 
-					clusteredPP_proj.x = cluster_pt_proj_pc->points[0].x;
-					clusteredPP_proj.y = cluster_pt_proj_pc->points[0].y;	
-					clusteredPP_proj.z = cluster_pt_proj_pc->points[0].z;
-					clusteredPP_proj.r = 255;
-					clusteredPP_proj.g = 0;
-					clusteredPP_proj.b = 0;	
-					cluster_pc->points.push_back(clusteredPP_proj);
+				//	clusteredPP_proj.x = cluster_pt_proj_pc->points[0].x;
+				//	clusteredPP_proj.y = cluster_pt_proj_pc->points[0].y;	
+				//	clusteredPP_proj.z = cluster_pt_proj_pc->points[0].z;
+				//	clusteredPP_proj.r = 255;
+				//	clusteredPP_proj.g = 0;
+				//	clusteredPP_proj.b = 0;	
+				//	cluster_pc->points.push_back(clusteredPP_proj);
 				} 
 
 				clusterVec_pc.push_back(cluster_pc);
 
 		} // end clusters
 
-		std::cout << "Number of clusters: " << clusters.size () << std::endl;
+		std::cout << "Number of clusters: " << clusterVec_pc.size () << std::endl;
 		return clusterVec_pc;
 
 	}; //end if

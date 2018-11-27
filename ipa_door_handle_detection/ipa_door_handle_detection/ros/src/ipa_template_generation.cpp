@@ -1,4 +1,3 @@
-
 #include "ipa_door_handle_segmentation.h"
 #include "ipa_template_generation.h"
 
@@ -72,7 +71,6 @@ std::string targetPath = "/home/rmb-ml/Desktop/PointCloudData/templateData/";
 										pcl::io::savePCDFileASCII (filePathPCDWrite,*template_cloud_reduced);
 
 										}
-
 
 										template_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
 										template_cloud_reduced.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
