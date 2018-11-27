@@ -14,16 +14,38 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
 
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/region_growing_rgb.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/project_inliers.h>
 
+#include <pcl/common/projection_matrix.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+
+#include <pcl/search/search.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/segmentation/region_growing.h>
+#include <pcl/registration/icp.h>
+
+#include <pcl/registration/icp_nl.h>
 #include <boost/thread/mutex.hpp>
+
+
 #include<stdio.h>
 #include<cstdlib>
-#include<iostream>
 #include<string.h>
 #include<fstream>
 #include<dirent.h>
+
+
 
 
 class DoorHandleTemplateGeneration
@@ -33,7 +55,5 @@ public:
 DoorHandleTemplateGeneration(std::string filePath);
 
 void generateTemplatePCLFiles(std::string filePath);
-
-
 
 };
