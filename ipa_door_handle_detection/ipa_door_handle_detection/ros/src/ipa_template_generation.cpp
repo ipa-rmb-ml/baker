@@ -1,5 +1,6 @@
 #include "ipa_door_handle_segmentation.h"
 #include "ipa_template_generation.h"
+#include "ipa_door_handle_template_alignment.h"
 
 
 DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string filePath)
@@ -19,10 +20,18 @@ PointCloudSegmentation seg;
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr template_cloud (new pcl::PointCloud<pcl::PointXYZ>);
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_reduced (new pcl::PointCloud<pcl::PointXYZRGB>);
+pcl::PointCloud<pcl::Normal>::Ptr  template_cloud_normals (new pcl::PointCloud<pcl::Normal>);
+pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features (new pcl::PointCloud<pcl::FPFHSignature33>);
+
+
 std::vector <pcl::PointIndices> door_handle_cluster;	
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >template_cluster_vec;
 
-std::string targetPath = "/home/rmb-ml/Desktop/PointCloudData/templateData/";
+std::string targetPathXYZRGB  = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
+std::string targetPathNormals = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
+std::string targetPathFeatures = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
+
+FeatureCloudGeneration featureObj;
 
  DIR *pDIR;
         struct dirent *entry;
@@ -39,7 +48,9 @@ std::string targetPath = "/home/rmb-ml/Desktop/PointCloudData/templateData/";
 						//load PCD File and perform segmentation
 
 							std::string filePathPCDRead = filePath + entry->d_name;
-							std::string filePathPCDWrite = targetPath + entry->d_name;
+							std::string filePathPCDWriteXYZRGB = targetPathXYZRGB + entry->d_name;
+							std::string filePathPCDWriteNormals = targetPathNormals + entry->d_name;
+							std::string filePathPCDWriteFeatures = targetPathFeatures + entry->d_name;
 
 							
 							if (pcl::io::loadPCDFile<pcl::PointXYZ> (filePathPCDRead, *template_cloud) == -1) //* load the file
@@ -62,13 +73,22 @@ std::string targetPath = "/home/rmb-ml/Desktop/PointCloudData/templateData/";
 										if (door_handle_cluster.size()== 1)
 										{
 											template_cluster_vec= seg.generateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
+											// calculate xyzrgb point cloud
 											*template_cloud_reduced = *template_cluster_vec[0];
-
 											template_cloud_reduced->width = 1;
 											template_cloud_reduced->height = template_cloud_reduced->points.size();
+											
+											// calculate normals based on template_cloud_reduced
+											template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
+											
+											//calculate features based on template_cloud_reduced
+											template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
+
 
 										// FREE THE MEMORY
-										pcl::io::savePCDFileASCII (filePathPCDWrite,*template_cloud_reduced);
+										pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB,*template_cloud_reduced);
+										pcl::io::savePCDFileASCII (filePathPCDWriteNormals,*template_cloud_normals);
+										pcl::io::savePCDFileASCII (filePathPCDWriteFeatures,*template_cloud_features);
 
 										}
 

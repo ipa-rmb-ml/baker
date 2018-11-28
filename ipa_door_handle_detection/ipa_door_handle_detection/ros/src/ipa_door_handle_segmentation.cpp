@@ -7,6 +7,8 @@ PointCloudSegmentation::PointCloudSegmentation()
 
 }
 
+
+
 // main segmentation process including coloring the pointcloud and the plane detection
 // ================================================================================================================================
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  PointCloudSegmentation::segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud)

@@ -14,10 +14,13 @@ nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 
 void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg)
 {
+		
+	pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
 	//create new point cloud in pcl format: pointcloud_in_pcl_format
 	pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_in_pcl_format(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr published_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
-
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	//transform imported pointcloud point_cloud_msg to pointcloud_in_pcl_format
 	pcl::fromROSMsg(*point_cloud_msg, *pointcloud_in_pcl_format);
@@ -29,7 +32,7 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	
 	
 	// file path containing pcd files with stored templates
-	const std::string filePath = "/home/rmb-ml/Desktop/PointCloudData/templateData/";
+	const std::string filePathXYZRGB = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
 
 
 	//========SEGMENTATION==================
@@ -40,13 +43,11 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 		assumed_door_handles_pc_vec = segObj.segmentPointCloud(pointcloud_in_pcl_format);
 
 
-
-
 	//===========TEMPLATEALIGNMENT===========
 		// load templates into pc vector
 
 		FeatureCloudGeneration featureObj;
-		template_door_handles_pc_vec = featureObj.loadGeneratedTemplatePCLFiles(filePath);
+		template_door_handles_pc_vec = featureObj.loadGeneratedTemplatePCLFiles(filePathXYZRGB);
 
 	   // Iterate over assumed_door_handles_pc_vec and template_door_handles_pc_vec to compare by...
 	   // 1. ICP
@@ -56,11 +57,13 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			for (int numClusterTemplate = 0; numClusterTemplate < template_door_handles_pc_vec.size (); ++numClusterTemplate) // template loop
 			{
 
-
 				if (assumed_door_handles_pc_vec[numClusterAssumed]->points.size() > 0)
 				{	
-					featureObj.templateAlignmentByICP(assumed_door_handles_pc_vec[numClusterAssumed],template_door_handles_pc_vec[numClusterTemplate]);
-					//featureObj.templateAlignmentBy3DFeatures(assumed_door_handles_pc_vec[numClusterAssumed],template_door_handles_pc_vec[numClusterTemplate]);
+					  input_point_cloud = featureObj.downSamplePointCloud(assumed_door_handles_pc_vec[numClusterAssumed]);
+  					  input_template_point_cloud = featureObj.downSamplePointCloud(template_door_handles_pc_vec[numClusterTemplate]);
+
+					  //featureObj.icpBasedTemplateAlignment(input_point_cloud,input_template_point_cloud);
+					  featureObj.featureBasedTemplateAlignment(input_point_cloud,input_template_point_cloud);
 					// if fit return
 				}
 
@@ -68,9 +71,6 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 			}
 		}
-
-
-
 
 
 	//============VISUALIZATION =========
@@ -97,7 +97,6 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 	
 }
-
 
 void StartHandleDetection::initCameraNode(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg)
 
