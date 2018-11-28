@@ -82,7 +82,6 @@ add_executable(ipa_door_handle_detection
     ros/src/ipa_start_detection.cpp 
     ros/src/ipa_door_handle_segmentation.cpp
     ros/src/ipa_door_handle_template_alignment.cpp
-    ros/src/ipa_template_generation.cpp
 )
 
 add_dependencies(ipa_door_handle_detection
@@ -102,6 +101,7 @@ target_link_libraries(ipa_door_handle_detection
 add_executable(ipa_template_generation
     ros/src/ipa_template_generation.cpp
     ros/src/ipa_door_handle_segmentation.cpp
+    ros/src/ipa_door_handle_template_alignment.cpp
 
 )
 
