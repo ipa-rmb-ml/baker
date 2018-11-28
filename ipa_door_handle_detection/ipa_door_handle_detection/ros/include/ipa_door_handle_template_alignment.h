@@ -33,11 +33,17 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/segmentation/region_growing.h>
+#include <pcl/filters/filter.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include <iostream>
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/features/fpfh.h>
+#include <pcl/registration/ia_ransac.h>
+#include <pcl/registration/sample_consensus_prerejective.h>
+
 
 #include <boost/thread/mutex.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -52,9 +58,17 @@ FeatureCloudGeneration();
 
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLFiles(const std::string filePath);
 
-void templateAlignmentByICP(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+void icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
-pcl::PointCloud<pcl::Normal>::Ptr estimateNormalsFromPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
+void featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+
+pcl::PointCloud<pcl::Normal>::Ptr calculateSurfaceNormals(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
+
+pcl::PointCloud<pcl::FPFHSignature33>::Ptr calculate3DFeatures(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud, pcl::PointCloud<pcl::Normal>::Ptr cloud_normals);
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr downSamplePointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
+
+
 
 private:
 
