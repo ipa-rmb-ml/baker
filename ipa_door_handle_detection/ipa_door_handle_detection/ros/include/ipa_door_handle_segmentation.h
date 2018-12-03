@@ -34,13 +34,14 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/segmentation/region_growing.h>
 
+
 #include <boost/thread/mutex.hpp>
 
 // struct for storing point cloud plane information
 
 	struct planeInformation
 	{
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_point_cloud;
+	pcl::PointIndices::Ptr plane_point_cloud_indices;
 	pcl::ModelCoefficients::Ptr plane_coeff;
 	};
 
@@ -56,11 +57,15 @@ public:
 	
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr changePointCloudColor(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	// detect door plane in pointcloud
+
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
+	pcl::ModelCoefficients::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals);
+
+	void checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr model_coeff_1,pcl::ModelCoefficients::Ptr model_coeff_2);
+
 	// removing all object points that are too distant from the door plane
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff);
 	
 	// apply region growing to identifie all cluster in front of the detected door
 	std::vector <pcl::PointIndices> findClustersByRegionGrowing(pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc);

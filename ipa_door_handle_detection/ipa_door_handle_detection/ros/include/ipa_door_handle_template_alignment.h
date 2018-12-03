@@ -44,7 +44,6 @@
 #include <pcl/registration/ia_ransac.h>
 #include <pcl/registration/sample_consensus_prerejective.h>
 
-
 #include <boost/thread/mutex.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
 
@@ -56,11 +55,14 @@ public:
 
 FeatureCloudGeneration();
 
-std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLFiles(const std::string filePath);
+// file load different types
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLXYZ(const std::string filePath);
+std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >  loadGeneratedTemplatePCLFeatures(const std::string filePath);
+std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >  loadGeneratedTemplatePCLNormals(const std::string filePath);
 
-void icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+bool icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
-void featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+bool featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals);
 
 pcl::PointCloud<pcl::Normal>::Ptr calculateSurfaceNormals(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
 
