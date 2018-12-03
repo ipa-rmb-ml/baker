@@ -14,7 +14,7 @@ PointCloudSegmentation::PointCloudSegmentation()
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  PointCloudSegmentation::segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud)
 {
 	
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointIndices::Ptr  plane_pc_indices(new pcl::PointIndices);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr clustered_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr published_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -28,13 +28,13 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 	planeInformation planeData = detectPlaneInPointCloud(input_cloud);
 
 	plane_coeff = planeData.plane_coeff;
-	plane_pc = planeData.plane_point_cloud;
+	plane_pc_indices = planeData.plane_point_cloud_indices;
 
 	// coloredPC: PC colored in blue
 	// plane_pc: detected plane ccolored in red
 	// plane coeff: coeffs of the detected plane
 
-	reduced_pc=minimizePointCloudToObject(input_cloud,plane_pc,plane_coeff);
+	reduced_pc=minimizePointCloudToObject(input_cloud,plane_pc_indices,plane_coeff);
 
 	clusters=findClustersByRegionGrowing(reduced_pc);
     clusters_vec_pc = generateAlignmentObject(clusters,reduced_pc,plane_coeff);
@@ -73,9 +73,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::changePointCloudC
 	return pointcloud_xyzrgb;
 }
 
+planeInformation PointCloudSegmentation::detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud){
 
-
- 	planeInformation PointCloudSegmentation::detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud){
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::ExtractIndices<pcl::PointXYZ> extract;
 
@@ -97,41 +96,43 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::changePointCloudC
 	
 
 	// iterater over inlier (pllane points) to color them red 
-	pcl::PointXYZRGB pclPoint_plane;
+	//pcl::PointXYZRGB pclPoint_plane;
 
-	for (size_t i = 0; i < inliers->indices.size (); ++i)
-	{
-		pclPoint_plane.x = input_cloud->points[inliers->indices[i]].x;
-		pclPoint_plane.y = input_cloud->points[inliers->indices[i]].y;
-		pclPoint_plane.z = input_cloud->points[inliers->indices[i]].z;
-		pclPoint_plane.r = 255;
-		pclPoint_plane.b = 0;
-		pclPoint_plane.g = 0;
+	//for (size_t i = 0; i < inliers->indices.size (); ++i)
+	//{
+	//	pclPoint_plane.x = input_cloud->points[inliers->indices[i]].x;
+	//	pclPoint_plane.y = input_cloud->points[inliers->indices[i]].y;
+	//	pclPoint_plane.z = input_cloud->points[inliers->indices[i]].z;
+	//	pclPoint_plane.r = 255;
+	//	pclPoint_plane.b = 0;
+	//	pclPoint_plane.g = 0;
 
-		plane_pc->points.push_back(pclPoint_plane);
-	}
+	//	plane_pc->points.push_back(pclPoint_plane);
+	//}
 
 	planeInformation planeData;
-	planeData.plane_point_cloud = plane_pc;
+	planeData.plane_point_cloud_indices = inliers;
  	planeData.plane_coeff = plane_coeff;
 
 	return planeData;
 };
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc,pcl::ModelCoefficients::Ptr plane_coeff){
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud, pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff){
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	// calculate point to plane distance
 	pcl::PointXYZRGB pp_PC;
 	double min_dist = 0.05;
-	double max_dist = 0.15;
-
+	double max_dist = 0.2;
 
 	// height of door handle: due to DIN 85 cm to 105 cm
-	double min_height = 0.85;
-	double max_height = 1.05;
+	double min_height_door_handle = 0.85;
+	double max_height_door_handle = 1.05;
+
+	// robot distance
+	double max_door_robot = 1.5;
 
   	for (size_t i = 0; i < input_cloud->points.size (); ++i)
 	{
@@ -143,9 +144,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 		
 		double point2plane_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
 
-
-		// check if assumed door handle in height range
-		if ((pp_PC.z > min_height) && (pp_PC.z < max_height) )
+		// add DIN information to ppoint handle
+		// robots distance 
+		if ( pp_PC.z < max_door_robot)
 		{
 			if ((point2plane_distance > min_dist) && (point2plane_distance < max_dist))
 			{
@@ -279,3 +280,50 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::removePlaneOutlie
 	return clusterProj;
 
 };
+
+
+
+pcl::ModelCoefficients::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals)
+{
+
+  pcl::SACSegmentationFromNormals<pcl::PointXYZRGB, pcl::Normal> seg; 
+
+  pcl::PointCloud<pcl::Normal>::Ptr cyl_normals (new pcl::PointCloud<pcl::Normal>);
+  pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices);
+  pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients);
+
+  seg.setOptimizeCoefficients (true);
+  seg.setModelType (pcl::SACMODEL_CYLINDER);
+  seg.setMethodType (pcl::SAC_RANSAC);
+  seg.setNormalDistanceWeight (0.1);
+  seg.setMaxIterations (10000);
+  seg.setDistanceThreshold (0.05);
+  seg.setRadiusLimits (0, 0.1);
+  seg.setInputCloud (input_point_cloud);
+  seg.setInputNormals (input_point_cloud_normals);
+
+   //Obtain the cylinder inliers and coefficients
+  seg.segment (*inliers_cylinder, *coefficients_cylinder);
+
+
+	// ===================0defition of coefficients_cylinder ==========
+	//  point_on_axis.x : the X coordinate of a point located on the cylinder axis
+	// point_on_axis.y : the Y coordinate of a point located on the cylinder axis
+	// point_on_axis.z : the Z coordinate of a point located on the cylinder axis
+	// axis_direction.x : the X coordinate of the cylinder's axis direction
+	// axis_direction.y : the Y coordinate of the cylinder's axis direction
+	// axis_direction.z : the Z coordinate of the cylinder's axis direction
+	// radius : the cylinder's radius
+
+  std::cout << "Cylinder coefficients: " << *coefficients_cylinder << std::endl;
+
+  return coefficients_cylinder;
+}
+
+void PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr model_coefficients_1,pcl::ModelCoefficients::Ptr model_coefficients_2)
+{
+
+
+
+
+}

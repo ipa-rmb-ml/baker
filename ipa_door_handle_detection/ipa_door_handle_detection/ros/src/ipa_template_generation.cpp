@@ -17,6 +17,7 @@ void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std::string filePat
 {
 
 PointCloudSegmentation seg;
+FeatureCloudGeneration feat;
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr template_cloud (new pcl::PointCloud<pcl::PointXYZ>);
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_reduced (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -66,6 +67,7 @@ FeatureCloudGeneration featureObj;
 							
 							template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc,plane_coeff);
 
+
 								if (template_cloud_reduced->size() > 0)
 									{
 										door_handle_cluster=seg.findClustersByRegionGrowing(template_cloud_reduced);
@@ -77,6 +79,10 @@ FeatureCloudGeneration featureObj;
 											*template_cloud_reduced = *template_cluster_vec[0];
 											template_cloud_reduced->width = 1;
 											template_cloud_reduced->height = template_cloud_reduced->points.size();
+
+
+											// downsample point cloud for better performance 
+											template_cloud_reduced=feat.downSamplePointCloud(template_cloud_reduced);
 											
 											// calculate normals based on template_cloud_reduced
 											template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
@@ -85,15 +91,18 @@ FeatureCloudGeneration featureObj;
 											template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
 
 
-										// FREE THE MEMORY
+										
+										std::cout << "Writing XYZ..." << std::endl;
 										pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB,*template_cloud_reduced);
+
+										std::cout << "Writing Normals..." << std::endl;
 										pcl::io::savePCDFileASCII (filePathPCDWriteNormals,*template_cloud_normals);
+
+										std::cout << "Writing Features..." << std::endl;
 										pcl::io::savePCDFileASCII (filePathPCDWriteFeatures,*template_cloud_features);
 
 										}
 
-										template_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
-										template_cloud_reduced.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
 									}
 									else
 									{
