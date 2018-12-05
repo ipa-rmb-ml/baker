@@ -52,5 +52,9 @@ private:
 	ros::NodeHandle nh_;
 	sensor_msgs::PointCloud2::Ptr point_cloud_out_msg_;
 	ros::Subscriber point_cloud_sub_;
+
+	std::string filePathXYZRGB_;
+	std::string filePathNormals_;
+	std::string filePathFeatures_;
 };
 

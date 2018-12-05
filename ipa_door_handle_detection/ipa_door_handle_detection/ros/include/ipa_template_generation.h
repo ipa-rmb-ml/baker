@@ -52,8 +52,15 @@ class DoorHandleTemplateGeneration
 {
 public:
 
-DoorHandleTemplateGeneration(std::string filePath);
+DoorHandleTemplateGeneration(std::string file_path_to_point_clouds);
 
-void generateTemplatePCLFiles(std::string filePath);
+void generateTemplatePCLFiles(std::string file_path_to_point_clouds);
+
+
+private:
+
+std::string targetPathXYZRGB_;
+std::string targetPathNormals_;
+std::string targetPathFeatures_;
 
 };

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ros/ros.h>
 #include <utility>
+#include <math.h>
 
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
@@ -60,9 +61,9 @@ public:
 
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	pcl::ModelCoefficients::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals);
+	pcl::PointIndices::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
 
-	void checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr model_coeff_1,pcl::ModelCoefficients::Ptr model_coeff_2);
+	void checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
 
 	// removing all object points that are too distant from the door plane
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff);
@@ -77,5 +78,27 @@ public:
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr removePlaneOutlierByClusterOnPlaneProjection(pcl::PointXYZRGB clusterPoint,pcl::ModelCoefficients::Ptr plane_coeff);
 
 private:
+
+
+// filter points by distance
+double min_point_to_plane_dist_;
+double max_point_to_plane_dist_;
+
+double min_height_door_handle_;
+double max_height_door_handle_;
+
+double max_door_robot_;
+
+double cylinder_rad_min_;
+double cylinder_rad_max_;
+
+int max_num_iter_;
+double distance_thres_;
+
+int min_cluster_size_;
+int max_cluster_size_;
+
+double angle_thres_;
+
 };
 
