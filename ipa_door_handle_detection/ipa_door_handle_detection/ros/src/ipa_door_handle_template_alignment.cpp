@@ -1,11 +1,21 @@
 #include "ipa_door_handle_template_alignment.h"
 
+
 FeatureCloudGeneration::FeatureCloudGeneration()
 {
+
+alignment_eps_ = 1e-6;
+alignment_thres_ = 1e-4;
+
+ max_num_iter_ = 1000;
+ similarity_thres_ = 0.9f;
+
+ rad_search_dist_ = 0.03;
+ voxel_grid_size_ = 0.005f;
 }
 
 
-std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLXYZ(const std::string filePath)
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLXYZ(std::string filePath)
 {
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -35,7 +45,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 }
 
 
-std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLFeatures(const std::string filePath)
+std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLFeatures(std::string filePath)
 {
 
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud (new pcl::PointCloud<pcl::FPFHSignature33>);
@@ -64,7 +74,7 @@ std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<
 
 }
 
-std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLNormals(const std::string filePath)
+std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> > FeatureCloudGeneration::loadGeneratedTemplatePCLNormals(std::string filePath)
 {
 
 pcl::PointCloud<pcl::Normal>::Ptr template_cloud (new pcl::PointCloud<pcl::Normal>);
@@ -98,20 +108,50 @@ std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::Poin
 bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud)
 {
 
-
-  double transformEps = 9e-5;
-
   pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
-  icp.setInputSource(input_point_cloud);
-  icp.setInputTarget(input_template_point_cloud);
-  icp.setTransformationEpsilon (transformEps);
+
+ //Set the maximum distance between two correspondences (src<->tgt) to 10cm
+  icp.setMaxCorrespondenceDistance (0.1);
+  icp.setTransformationEpsilon (alignment_eps_);
+
   pcl::PointCloud<pcl::PointXYZRGB> Final;
-  icp.align(Final);
+  Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
+
+ for (int i = 0; i < 10; ++i)
+  {
+    PCL_INFO ("Iteration Nr. %d.\n", i);
+
+    // Estimate
+    icp.setInputSource (input_point_cloud);
+    icp.setInputTarget(input_template_point_cloud);
+    icp.align (Final);
+
+		//accumulate transformation between each Iteration
+    Ti = icp.getFinalTransformation () * Ti;
+
+		//if the difference between this transformation and the previous one
+		//is smaller than the threshold, refine the process by reducing
+		//the maximal correspondence distance
+    if (fabs ((icp.getLastIncrementalTransformation () - prev).sum ()) < icp.getTransformationEpsilon ())
+    {
+      icp.setMaxCorrespondenceDistance (icp.getMaxCorrespondenceDistance () - 0.001);
+    }
+    
+    prev = icp.getLastIncrementalTransformation ();
+
+    if (icp.getFitnessScore() < alignment_thres_ )
+    {
+      break;
+    }
+
+  }
 
 
   double score = icp.getFitnessScore();
 
-  if (score < transformEps)
+  std::cout << score << std::endl;
+
+  if (score < alignment_thres_)
   {
     //  std::cout << "Door Handle Detection Score ICP: "<< score << std::endl;
       Eigen::Matrix4f transformation = icp.getFinalTransformation ();
@@ -133,6 +173,7 @@ bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::Poin
 
 
 bool FeatureCloudGeneration::featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,
+
 pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,
 pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
@@ -140,31 +181,30 @@ pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
    
   	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_aligned(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr input_point_cloud_features;
 
    //calculate features for point clpud and template based oon xyzrgb and priorly estimated surface normals
     input_point_cloud_features = calculate3DFeatures(input_point_cloud,input_cloud_normals);
 
     pcl::SampleConsensusPrerejective<pcl::PointXYZRGB, pcl:: PointXYZRGB, pcl::FPFHSignature33> align;
-    double eps = 9e-5;
+
     align.setInputSource (input_point_cloud);
     align.setSourceFeatures (input_point_cloud_features);
 
     align.setInputTarget (template_cloud);
     align.setTargetFeatures (template_cloud_features);
 
-    align.setMaximumIterations (10000); // Number of RANSAC iterations
+    align.setMaximumIterations (max_num_iter_); // Number of RANSAC iterations
     align.setNumberOfSamples (3); // Number of points to sample for generating/prerejecting a pose
     align.setCorrespondenceRandomness (3); // Number of nearest features to use
-    align.setSimilarityThreshold (0.9f); // Polygonal edge length similarity threshold
+    align.setSimilarityThreshold (similarity_thres_); // Polygonal edge length similarity threshold
     align.setMaxCorrespondenceDistance (2.5f * 0.005f); // Inlier threshold
     align.setInlierFraction (0.25f); // Required inlier fraction for accepting a pose hypothesis
 
       //pcl::ScopeTime t("Alignment");
     align.align (*cloud_aligned);
 
-  if (align.hasConverged () && (align.getFitnessScore() < eps))
+  if (align.hasConverged () && (align.getFitnessScore() < alignment_thres_))
   {
     // Print results
     //printf ("\n");
@@ -184,8 +224,6 @@ pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
        return 0;
   }
 
-  
-
 }
 
 
@@ -204,7 +242,7 @@ pcl::PointCloud<pcl::Normal>::Ptr  FeatureCloudGeneration::calculateSurfaceNorma
       pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
 
       // Use all neighbors in a sphere of radius 3cm
-      ne.setRadiusSearch (0.03);
+      ne.setRadiusSearch (rad_search_dist_);
 
       // Compute the features
       ne.compute (*cloud_normals);
@@ -223,7 +261,7 @@ pcl::PointCloud<pcl::Normal>::Ptr  FeatureCloudGeneration::calculateSurfaceNorma
       pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhFeatures(new pcl::PointCloud<pcl::FPFHSignature33>);
 
       fpfh_est.setSearchMethod (tree);
-      fpfh_est.setRadiusSearch (0.03);
+      fpfh_est.setRadiusSearch (rad_search_dist_);
       fpfh_est.compute (*fpfhFeatures);
 
       return fpfhFeatures;
@@ -234,10 +272,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr FeatureCloudGeneration::downSamplePointCl
 {
 
         // ... and downsampling the point cloud
-      const float voxel_grid_size = 0.005f;
       pcl::VoxelGrid<pcl::PointXYZRGB> vox_grid;
       vox_grid.setInputCloud (input_point_cloud);
-      vox_grid.setLeafSize (voxel_grid_size, voxel_grid_size, voxel_grid_size);
+      vox_grid.setLeafSize (voxel_grid_size_, voxel_grid_size_, voxel_grid_size_);
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZRGB>); 
       vox_grid.filter (*tempCloud);
       input_point_cloud = tempCloud; 

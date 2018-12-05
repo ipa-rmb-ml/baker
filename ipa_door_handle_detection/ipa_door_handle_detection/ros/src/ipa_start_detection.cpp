@@ -7,8 +7,13 @@
 StartHandleDetection::StartHandleDetection(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg) :
 nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 {
-	
-	initCameraNode(nh,point_cloud_out_msg);		
+	filePathXYZRGB_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
+	filePathNormals_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
+	filePathFeatures_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
+
+	initCameraNode(nh,point_cloud_out_msg);	
+
+
 }
 
 
@@ -39,11 +44,6 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >template_door_handles_pc_vec_xyz;
 	// ==========================================================================================================================================================
 	
-	
-	// file path containing pcd files with stored templates
-	const std::string filePathXYZRGB = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
-	const std::string filePathNormals = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
-	const std::string filePathFeatures = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
 
 
 	//========SEGMENTATION==================
@@ -70,13 +70,14 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 		// 2. Normals and Features 
 
 		// 1. xyz
-		template_door_handles_pc_vec_xyz = featureObj.loadGeneratedTemplatePCLXYZ(filePathXYZRGB);
+		template_door_handles_pc_vec_xyz = featureObj.loadGeneratedTemplatePCLXYZ(filePathXYZRGB_);
 
 		// 2. normals
-		template_door_handles_pc_vec_features = featureObj.loadGeneratedTemplatePCLFeatures(filePathFeatures);
+		template_door_handles_pc_vec_features = featureObj.loadGeneratedTemplatePCLFeatures(filePathFeatures_);
 
 		// 3. features
-		template_door_handles_pc_vec_normals = featureObj.loadGeneratedTemplatePCLNormals(filePathNormals);
+		template_door_handles_pc_vec_normals = featureObj.loadGeneratedTemplatePCLNormals(filePathNormals_);
+
 
 
 	   // Iterate over assumed_door_handles_pc_vec and template_door_handles_pc_vec to compare by...
@@ -95,42 +96,33 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 				if (assumed_door_handles_pc_vec[numClusterAssumed]->points.size() > 0)
 				{	
-						template_cloud_normals = template_door_handles_pc_vec_normals[numClusterTemplate];
-						template_cloud_features = template_door_handles_pc_vec_features[numClusterTemplate];
-						template_cloud = template_door_handles_pc_vec_xyz[numClusterTemplate];
+					template_cloud_normals = template_door_handles_pc_vec_normals[numClusterTemplate];
+					template_cloud_features = template_door_handles_pc_vec_features[numClusterTemplate];
+					template_cloud = template_door_handles_pc_vec_xyz[numClusterTemplate];
 
-						assumed_handle_cloud = assumed_door_handles_pc_vec[numClusterAssumed];
-
-					  	assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
+					assumed_handle_cloud = assumed_door_handles_pc_vec[numClusterAssumed];
+					assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
 
 
 					pcl::PointCloud<pcl::Normal>:: Ptr assumed_handle_cloud_normals =  featureObj.calculateSurfaceNormals(assumed_handle_cloud);
 
 					bool handle_detected_icp = featureObj.icpBasedTemplateAlignment(assumed_handle_cloud,template_cloud);
-					bool handle_detected_nf  = featureObj.featureBasedTemplateAlignment(assumed_handle_cloud,assumed_handle_cloud_normals,template_cloud,template_cloud_features,template_cloud_normals);
+				//	bool handle_detected_nf  = featureObj.featureBasedTemplateAlignment(assumed_handle_cloud,assumed_handle_cloud_normals,template_cloud,template_cloud_features,template_cloud_normals);
 
-					
-					if ((handle_detected_icp && handle_detected_nf) ==1)	
+				if ((handle_detected_icp) ==1)	
 					{
 						std::cout << "Door handle detected" << std::endl;
-						pcl::ModelCoefficients::Ptr cylinder_coefficients = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals);
-						segObj.checkOrientationAndGeometryOfCylinder(cylinder_coefficients,plane_coefficients);
+						pcl::PointIndices::Ptr cylinder_point_cloud_indices = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
 
-				
-				
-					}
+											}
 					else
 					{
-						std::cout<< "Template does not match" << std::endl;
-						continue;
-						
+						continue;	
 					}
 
 				}
 			}
 		}
-
-
 
 	}
 
@@ -149,18 +141,11 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			pub_.publish(point_cloud_out_msg_);
 		}
 
-	//============VISUALIZATION =========
-
-
-
-	//=================ACTUAL CALCULATION:END=========================================================
-
-
+	//============VISUALIZATION ========
 	
 }
 
 void StartHandleDetection::initCameraNode(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg)
-
 {
 	std::cout << "Initialising StartHandleDetection Constructor." << std::endl;
 	pub_ = nh_.advertise<sensor_msgs::PointCloud2>("point_cloud_output",1);

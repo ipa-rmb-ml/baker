@@ -5,6 +5,33 @@
 PointCloudSegmentation::PointCloudSegmentation()
 {
 
+// filter points by distance
+min_point_to_plane_dist_ = 0.05;
+max_point_to_plane_dist_ = 0.2;
+
+// filter points by door handle height
+// height of door handle: due to DIN 85 cm to 105 cm
+min_height_door_handle_ = 0.85;
+max_height_door_handle_ = 1.05;
+
+// max door-robot distance --> especially for glas doors no to caputre objects behind
+max_door_robot_ = 1.5;
+
+// cylinder params for fit
+cylinder_rad_min_ = 0.01;
+cylinder_rad_max_ = 0.1;
+
+
+// segmentation params
+distance_thres_ = 0.01;
+max_num_iter_ = 1000;
+
+min_cluster_size_ = 500;
+max_cluster_size_ = 1000000;
+
+
+angle_thres_ 10.0;
+
 }
 
 
@@ -89,7 +116,7 @@ planeInformation PointCloudSegmentation::detectPlaneInPointCloud(pcl::PointCloud
 	// Mandatory
 	seg.setModelType (pcl::SACMODEL_PLANE);
 	seg.setMethodType (pcl::SAC_RANSAC);
-	seg.setDistanceThreshold (0.01);
+	seg.setDistanceThreshold (distance_thres_);
 	seg.setInputCloud (input_cloud);
 	// get inliers and plane coeff
 	seg.segment (*inliers, *plane_coeff);
@@ -124,15 +151,6 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 
 	// calculate point to plane distance
 	pcl::PointXYZRGB pp_PC;
-	double min_dist = 0.05;
-	double max_dist = 0.2;
-
-	// height of door handle: due to DIN 85 cm to 105 cm
-	double min_height_door_handle = 0.85;
-	double max_height_door_handle = 1.05;
-
-	// robot distance
-	double max_door_robot = 1.5;
 
   	for (size_t i = 0; i < input_cloud->points.size (); ++i)
 	{
@@ -146,9 +164,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 
 		// add DIN information to ppoint handle
 		// robots distance 
-		if ( pp_PC.z < max_door_robot)
+		if ( pp_PC.z < max_door_robot_)
 		{
-			if ((point2plane_distance > min_dist) && (point2plane_distance < max_dist))
+			if ((point2plane_distance > min_point_to_plane_dist_) && (point2plane_distance < max_point_to_plane_dist_))
 			{
 						pp_PC.r = 0;																								
 						pp_PC.b = 255;
@@ -177,8 +195,8 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 
 
   pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> reg;
-  reg.setMinClusterSize (500);
-  reg.setMaxClusterSize (1000000);
+  reg.setMinClusterSize (min_cluster_size_);
+  reg.setMaxClusterSize (max_cluster_size_);
   reg.setSearchMethod (tree);
   reg.setNumberOfNeighbours (30);
   reg.setInputCloud (reduced_pc);
@@ -251,7 +269,7 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 
 		} // end clusters
 
-		std::cout << "Number of clusters: " << clusterVec_pc.size () << std::endl;
+		//std::cout << "Number of clusters: " << clusterVec_pc.size () << std::endl;
 		return clusterVec_pc;
 
 	}; //end if
@@ -281,9 +299,11 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::removePlaneOutlie
 
 };
 
+// fit cylinder and get parameters to check weathr parallel to plane
+// project cylinder on plane and check weather all points lying inside of a rectangle --> rect with height == door handles diameter
 
 
-pcl::ModelCoefficients::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals)
+pcl::PointIndices::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
 {
 
   pcl::SACSegmentationFromNormals<pcl::PointXYZRGB, pcl::Normal> seg; 
@@ -295,10 +315,11 @@ pcl::ModelCoefficients::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pc
   seg.setOptimizeCoefficients (true);
   seg.setModelType (pcl::SACMODEL_CYLINDER);
   seg.setMethodType (pcl::SAC_RANSAC);
-  seg.setNormalDistanceWeight (0.1);
-  seg.setMaxIterations (10000);
-  seg.setDistanceThreshold (0.05);
-  seg.setRadiusLimits (0, 0.1);
+  seg.setNormalDistanceWeight (distance_thres_);
+  seg.setMaxIterations (max_num_iter_);
+  seg.setDistanceThreshold (distance_thres_);
+  seg.setRadiusLimits (cylinder_rad_min_,cylinder_rad_max_);
+
   seg.setInputCloud (input_point_cloud);
   seg.setInputNormals (input_point_cloud_normals);
 
@@ -306,24 +327,46 @@ pcl::ModelCoefficients::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pc
   seg.segment (*inliers_cylinder, *coefficients_cylinder);
 
 
-	// ===================0defition of coefficients_cylinder ==========
-	//  point_on_axis.x : the X coordinate of a point located on the cylinder axis
-	// point_on_axis.y : the Y coordinate of a point located on the cylinder axis
-	// point_on_axis.z : the Z coordinate of a point located on the cylinder axis
-	// axis_direction.x : the X coordinate of the cylinder's axis direction
-	// axis_direction.y : the Y coordinate of the cylinder's axis direction
-	// axis_direction.z : the Z coordinate of the cylinder's axis direction
+  checkOrientationAndGeometryOfCylinder(coefficients_cylinder,plane_coefficients);
+
+
+  return inliers_cylinder;
+}
+
+void  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)
+{
+	// check if cylinders rotation axis is orthogonal to the door plane
+
+	// ===================Definition of coefficients_cylinder ==========
+	//  point_on_axis.x : the X coordinate of a point located on the cylinder axis 0
+	// point_on_axis.y : the Y coordinate of a point located on the cylinder axis  1
+	// point_on_axis.z : the Z coordinate of a point located on the cylinder axis 2
+	// axis_direction.x : the X coordinate of the cylinder's axis direction 3 
+	// axis_direction.y : the Y coordinate of the cylinder's axis direction 4
+	// axis_direction.z : the Z coordinate of the cylinder's axis direction 5
 	// radius : the cylinder's radius
 
-  std::cout << "Cylinder coefficients: " << *coefficients_cylinder << std::endl;
+	int offset = 3;
+	double scalar_prod = 0;
 
-  return coefficients_cylinder;
+	double len_1 = 0; // cyl axis
+	double len_2 = 0; // normal vec
+
+	for (int i =0; i < 2; i++)
+	{
+		 scalar_prod += cylinder_coeff->values[offset +i] * plane_coeff->values[i];
+		 len_1 += pow(cylinder_coeff->values[offset +i],2);
+		 len_2 += pow(plane_coeff->values[i],2);
+	}
+
+	// get geometrical lenght
+	double cos_alpha = scalar_prod/(sqrt(len_1)*sqrt(len_2));
+
+	double angle = acos(cos_alpha)*180.0/M_PI;
+
+	std::cout << "angle: " << angle << std::endl;
+
+
+
 }
 
-void PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr model_coefficients_1,pcl::ModelCoefficients::Ptr model_coefficients_2)
-{
-
-
-
-
-}

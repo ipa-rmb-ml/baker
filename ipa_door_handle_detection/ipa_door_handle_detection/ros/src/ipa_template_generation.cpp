@@ -3,17 +3,19 @@
 #include "ipa_door_handle_template_alignment.h"
 
 
-DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string filePath)
+DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path_to_point_clouds )
 {
-	generateTemplatePCLFiles(filePath);
 
+	targetPathXYZRGB_  = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
+	targetPathNormals_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
+	targetPathFeatures_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
+	
+	generateTemplatePCLFiles(file_path_to_point_clouds);
 }
-
-
 
 // OFFLINE PART -> TEMPLATE GENERATION	
 
-void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std::string filePath)
+void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std:: string file_path_to_point_clouds)
 {
 
 PointCloudSegmentation seg;
@@ -28,30 +30,26 @@ pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features (new pcl::Poi
 std::vector <pcl::PointIndices> door_handle_cluster;	
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >template_cluster_vec;
 
-std::string targetPathXYZRGB  = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
-std::string targetPathNormals = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
-std::string targetPathFeatures = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
-
 FeatureCloudGeneration featureObj;
 
  DIR *pDIR;
         struct dirent *entry;
 
 
-        if(pDIR=opendir(filePath.c_str()))
+        if(pDIR=opendir(file_path_to_point_clouds.c_str()))
 		{
                 while(entry = readdir(pDIR)){
 
-                        if( strcmp(entry->d_name,filePath.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 )
+                        if( strcmp(entry->d_name,file_path_to_point_clouds.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 )
                         std::cout << entry->d_name << "\n";
 						
 						
 						//load PCD File and perform segmentation
 
-							std::string filePathPCDRead = filePath + entry->d_name;
-							std::string filePathPCDWriteXYZRGB = targetPathXYZRGB + entry->d_name;
-							std::string filePathPCDWriteNormals = targetPathNormals + entry->d_name;
-							std::string filePathPCDWriteFeatures = targetPathFeatures + entry->d_name;
+							std::string filePathPCDRead = file_path_to_point_clouds + entry->d_name;
+							std::string filePathPCDWriteXYZRGB = targetPathXYZRGB_ + entry->d_name;
+							std::string filePathPCDWriteNormals = targetPathNormals_ + entry->d_name;
+							std::string filePathPCDWriteFeatures = targetPathFeatures_ + entry->d_name;
 
 							
 							if (pcl::io::loadPCDFile<pcl::PointXYZ> (filePathPCDRead, *template_cloud) == -1) //* load the file
@@ -61,11 +59,11 @@ FeatureCloudGeneration featureObj;
 
 							planeInformation planeData = seg.detectPlaneInPointCloud(template_cloud);
 							pcl::ModelCoefficients::Ptr plane_coeff = planeData.plane_coeff;
-							pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_pc = planeData.plane_point_cloud;
+							pcl::PointIndices::Ptr plane_pc_indices = planeData.plane_point_cloud_indices;
 
 
 							
-							template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc,plane_coeff);
+							template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc_indices,plane_coeff);
 
 
 								if (template_cloud_reduced->size() > 0)
@@ -119,10 +117,9 @@ FeatureCloudGeneration featureObj;
 
 // =================================================0
 int main(int argc, char **argv)
-{
-
-std::string file_path_to_point_clouds = "/home/rmb-ml/Desktop/PointCloudData/unprocessed/";
-DoorHandleTemplateGeneration DoorHandleTemplateGeneration(file_path_to_point_clouds);
+{		
+	std::string file_path_to_point_clouds = "/home/rmb-ml/Desktop/PointCloudData/unprocessed/";
+	DoorHandleTemplateGeneration DoorHandleTemplateGeneration(file_path_to_point_clouds);
 
 	return 0;
 }
