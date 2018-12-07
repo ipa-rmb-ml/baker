@@ -17,6 +17,7 @@
 #include <pcl/point_types.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/common/transforms.h>
 
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
@@ -56,14 +57,15 @@ public:
 	//main function og the segmentation class
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > segmentPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 	
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr changePointCloudColor(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
-
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr changePointCloudColor(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud);
 
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	pcl::PointIndices::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
 
-	void checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
+	double  checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
+
+	void checkCylindersProjection(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points,pcl::ModelCoefficients::Ptr plane_coeff);
 
 	// removing all object points that are too distant from the door plane
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff);
@@ -75,7 +77,7 @@ public:
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlignmentObject(std::vector <pcl::PointIndices> clusters,pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc,pcl::ModelCoefficients::Ptr plane_coeff);
 
 	// used to project cluster points on detected plane to remove all addition points of the point cloud
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr removePlaneOutlierByClusterOnPlaneProjection(pcl::PointXYZRGB clusterPoint,pcl::ModelCoefficients::Ptr plane_coeff);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr projectPointsOnPlane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points,pcl::ModelCoefficients::Ptr plane_coeff);
 
 private:
 
@@ -98,7 +100,7 @@ double distance_thres_;
 int min_cluster_size_;
 int max_cluster_size_;
 
-double angle_thres_;
+double max_diff_norm_axis_;
 
 };
 
