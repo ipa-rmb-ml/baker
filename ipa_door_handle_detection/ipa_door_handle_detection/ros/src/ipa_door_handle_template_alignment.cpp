@@ -146,15 +146,16 @@ bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::Poin
 
   }
 
-
   double score = icp.getFitnessScore();
 
-  std::cout << score << std::endl;
+
 
   if (score < alignment_thres_)
   {
     //  std::cout << "Door Handle Detection Score ICP: "<< score << std::endl;
       Eigen::Matrix4f transformation = icp.getFinalTransformation ();
+
+      std::cout << score << std::endl;
 
       //printf ("\n");
       //printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));

@@ -24,27 +24,24 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	//create new point cloud in pcl format: pointcloud_in_pcl_format
 	pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_in_pcl_format(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr published_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
-
 	//transform imported pointcloud point_cloud_msg to pointcloud_in_pcl_format
 	pcl::fromROSMsg(*point_cloud_msg, *pointcloud_in_pcl_format);
 
 	// ==================== ACTUAL CALCULATION:START ==========================================================================================================
 
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >assumed_door_handles_pc_vec;
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr  assumed_handle_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+
 
 
 	// ======================= TEMPLATE =========================================================================================================================
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr  template_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-	pcl::PointCloud<pcl::Normal>::Ptr  template_cloud_normals (new pcl::PointCloud<pcl::Normal>);
-	pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features (new pcl::PointCloud<pcl::FPFHSignature33>);
 	
 	std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >template_door_handles_pc_vec_features;
 	std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >template_door_handles_pc_vec_normals;
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >template_door_handles_pc_vec_xyz;
 	// ==========================================================================================================================================================
 	
-
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_point_cloud_test(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	//========SEGMENTATION==================
 		
@@ -56,9 +53,8 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	//=====CYLINDER FITTING ========================00
 
 		planeInformation planeData = segObj.detectPlaneInPointCloud(pointcloud_in_pcl_format);
-		pcl::ModelCoefficients::Ptr cylinder_coefficients;
-		pcl::ModelCoefficients::Ptr plane_coefficients;
-		plane_coefficients = planeData.plane_coeff;
+
+		pcl::ModelCoefficients::Ptr plane_coefficients = planeData.plane_coeff;
 
 	//===========TEMPLATEALIGNMENT===========
 		// load templates into pc vector
@@ -96,11 +92,11 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 				if (assumed_door_handles_pc_vec[numClusterAssumed]->points.size() > 0)
 				{	
-					template_cloud_normals = template_door_handles_pc_vec_normals[numClusterTemplate];
-					template_cloud_features = template_door_handles_pc_vec_features[numClusterTemplate];
-					template_cloud = template_door_handles_pc_vec_xyz[numClusterTemplate];
+					pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals = template_door_handles_pc_vec_normals[numClusterTemplate];
+					pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features = template_door_handles_pc_vec_features[numClusterTemplate];
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud = template_door_handles_pc_vec_xyz[numClusterTemplate];
 
-					assumed_handle_cloud = assumed_door_handles_pc_vec[numClusterAssumed];
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud = assumed_door_handles_pc_vec[numClusterAssumed];
 					assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
 
 
@@ -112,9 +108,10 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 				if ((handle_detected_icp) ==1)	
 					{
 						std::cout << "Door handle detected" << std::endl;
-						pcl::PointIndices::Ptr cylinder_point_cloud_indices = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
+						cylinder_point_cloud = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
+			
 
-											}
+					}
 					else
 					{
 						continue;	
@@ -126,6 +123,7 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 	}
 
+
 	//============VISUALIZATION =========
 	// publish changed point cloud
 		if (!assumed_door_handles_pc_vec.empty())
@@ -135,6 +133,10 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			{			
 				*published_pc+= *assumed_door_handles_pc_vec[numCluster];
 			}
+
+
+			//cylinder_point_cloud_test = segObj.changePointCloudColor(cylinder_point_cloud);
+			//*published_pc+= *cylinder_point_cloud_test;
 
 			pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
 			point_cloud_out_msg_->header.frame_id = "camera_link";
