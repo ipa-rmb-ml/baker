@@ -1,4 +1,6 @@
 #include "ipa_door_handle_template_alignment.h"
+#include "ipa_template_generation.h"
+
 
 
 FeatureCloudGeneration::FeatureCloudGeneration()
@@ -7,6 +9,8 @@ FeatureCloudGeneration::FeatureCloudGeneration()
 alignment_eps_ = 1e-6;
 alignment_thres_ = 1e-4;
 
+ max_num_iter_icp_ref_ = 100;
+ corresp_dist_step_ = 0.01;
  max_num_iter_ = 1000;
  similarity_thres_ = 0.9f;
 
@@ -104,23 +108,81 @@ std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::Poin
 }
 
 
+std::vector<Eigen::Matrix4f> FeatureCloudGeneration::loadGeneratedPCATransformations(std::string filePath)
+{
 
-bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud)
+  std::vector<Eigen::Matrix4f> pca_transformation_vec;
+
+
+  DIR *pDIR;
+
+  struct dirent *entry;
+
+    if(pDIR=opendir(filePath.c_str()))
+		{
+      while(entry = readdir(pDIR)){
+          if( strcmp(entry->d_name,filePath.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 &&  strcmp(entry->d_name, ".") != 0)
+							{
+
+
+
+							//load PCD File and perform segmentation
+								std::string txtFile =  filePath + entry->d_name;
+
+
+                std::vector<string>  str_vec;
+                Eigen::Matrix4f pca_transform(4,4);
+
+              std::string line;
+              std::ifstream myfile ("/home/rmb-ml/Desktop/PointCloudData/templateDataPCATrafo/aaa.txt");
+                if (myfile.is_open())
+                {
+                  while ( getline (myfile,line) )
+                  {
+                    str_vec.push_back(line);
+                  }
+                  myfile.close();
+                }
+  
+
+                  
+
+	
+
+
+
+							}
+       }
+            closedir(pDIR);
+    }
+
+
+
+
+
+		return pca_transformation_vec;
+
+}
+
+
+
+
+
+
+Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud)
 {
 
   pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
 
  //Set the maximum distance between two correspondences (src<->tgt) to 10cm
-  icp.setMaxCorrespondenceDistance (0.1);
+  icp.setMaxCorrespondenceDistance (0.01);
   icp.setTransformationEpsilon (alignment_eps_);
 
   pcl::PointCloud<pcl::PointXYZRGB> Final;
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
 
- for (int i = 0; i < 10; ++i)
+ for (int i = 0; i < max_num_iter_icp_ref_; ++i)
   {
-    PCL_INFO ("Iteration Nr. %d.\n", i);
-
     // Estimate
     icp.setInputSource (input_point_cloud);
     icp.setInputTarget(input_template_point_cloud);
@@ -128,13 +190,15 @@ bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::Poin
 
 		//accumulate transformation between each Iteration
     Ti = icp.getFinalTransformation () * Ti;
+    prev = icp.getLastIncrementalTransformation ();
+
 
 		//if the difference between this transformation and the previous one
 		//is smaller than the threshold, refine the process by reducing
 		//the maximal correspondence distance
     if (fabs ((icp.getLastIncrementalTransformation () - prev).sum ()) < icp.getTransformationEpsilon ())
     {
-      icp.setMaxCorrespondenceDistance (icp.getMaxCorrespondenceDistance () - 0.001);
+      icp.setMaxCorrespondenceDistance (icp.getMaxCorrespondenceDistance () - corresp_dist_step_);
     }
     
     prev = icp.getLastIncrementalTransformation ();
@@ -147,39 +211,45 @@ bool FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::Poin
   }
 
   double score = icp.getFitnessScore();
-
-
+  Eigen::Matrix4f transformation;
 
   if (score < alignment_thres_)
   {
     //  std::cout << "Door Handle Detection Score ICP: "<< score << std::endl;
-      Eigen::Matrix4f transformation = icp.getFinalTransformation ();
+      transformation = icp.getFinalTransformation ();
 
-      std::cout << score << std::endl;
+      double sum_squared =  pow(transformation (0,3),2) + pow(transformation (1,3),2) + pow(transformation (2,3),2);
 
-      //printf ("\n");
-      //printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
+
+      std::cout << "================ICP================ " << std::endl;
+      std::cout << "Fitness Score: "<< score << std::endl;
+
+     // printf ("\n");
+     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
      // printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
-      //printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
+     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
      // printf ("\n");
      // printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
+     // printf ("\n");
 
-      return 1;
+      return transformation;
 
   }else
   {
-      return 0;
+
+    transformation = transformation.setZero(4,4);
+    return transformation;
   }
 }
 
 
-bool FeatureCloudGeneration::featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,
+Eigen::Matrix4f FeatureCloudGeneration::featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,
 
 pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,
 pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
 {
-   
+    Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
   	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_aligned(new pcl::PointCloud<pcl::PointXYZRGB>);
 
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr input_point_cloud_features;
@@ -195,6 +265,17 @@ pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
     align.setInputTarget (template_cloud);
     align.setTargetFeatures (template_cloud_features);
 
+
+
+ for (int i = 0; i < 2; ++i)
+  {
+    // Estimate
+    align.setInputSource (input_point_cloud);
+    align.setSourceFeatures (input_point_cloud_features);
+
+    align.setInputTarget (template_cloud);
+    align.setTargetFeatures (template_cloud_features);;
+
     align.setMaximumIterations (max_num_iter_); // Number of RANSAC iterations
     align.setNumberOfSamples (3); // Number of points to sample for generating/prerejecting a pose
     align.setCorrespondenceRandomness (3); // Number of nearest features to use
@@ -205,26 +286,56 @@ pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
       //pcl::ScopeTime t("Alignment");
     align.align (*cloud_aligned);
 
+		//accumulate transformation between each Iteration
+    Ti = align.getFinalTransformation () * Ti;
+    prev = align.getLastIncrementalTransformation ();
+
+
+		//if the difference between this transformation and the previous one
+		//is smaller than the threshold, refine the process by reducing
+		//the maximal correspondence distance
+    if (fabs ((align.getLastIncrementalTransformation () - prev).sum ()) < align.getTransformationEpsilon ())
+    {
+      align.setMaxCorrespondenceDistance (align.getMaxCorrespondenceDistance () - 0.001);
+    }
+    
+    prev = align.getLastIncrementalTransformation ();
+
+    if (align.getFitnessScore() < alignment_thres_ )
+    {
+      break;
+    }
+
+  }
+
+  Eigen::Matrix4f transformation;
+
   if (align.hasConverged () && (align.getFitnessScore() < alignment_thres_))
   {
     // Print results
     //printf ("\n");
 
     //std::cout << "Door Handle Detection Score 3D Features: "<< align.getFitnessScore() << std::endl;
-    Eigen::Matrix4f transformation = align.getFinalTransformation ();
-     // printf ("\n");
-     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
-     // printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
-     /// printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
+      transformation = align.getFinalTransformation ();
+      
+      std::cout << "================ICP NORMALS================ " << std::endl;
+      std::cout << "Fitness Score: "<< align.getFitnessScore() << std::endl;
     //  printf ("\n");
-     // printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
-     // printf ("\n");
-      return 1;
-  }else
-  {
-       return 0;
-  }
+    //  printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
+    //  printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
+    //  printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
+    //  printf ("\n");
+    //  printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
+    //  printf ("\n");
 
+      return transformation;
+  }
+  else
+  {
+
+    transformation = transformation.setZero(4,4);
+    return transformation;
+  }
 }
 
 

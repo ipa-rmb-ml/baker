@@ -18,6 +18,7 @@ max_height_door_handle_ = 1.05;
 max_door_robot_ = 1.5;
 
 // cylinder params for fit
+// min and max radius should be discussed
 cylinder_rad_min_ = 0.01;
 cylinder_rad_max_ = 0.1;
 
@@ -59,8 +60,9 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc=minimizePointCloudToObject(input_cloud,plane_pc_indices,plane_coeff);
 
 	std::vector <pcl::PointIndices> clusters = findClustersByRegionGrowing(reduced_pc);
-    clusters_vec_pc = generateAlignmentObject(clusters,reduced_pc,plane_coeff);
 
+
+    clusters_vec_pc = generateAlignmentObject(clusters,reduced_pc,plane_coeff);
 
 	// concentrate plane_pc with cluster_pc for visualizatuion
  return clusters_vec_pc;
@@ -74,13 +76,20 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::changePointCloudC
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr pointcloud_xyzrgb(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointXYZRGB pclPoint;
 
+	int min = 0;
+	int max = 255;
 
 	for (size_t i = 0; i < input_cloud->points.size (); ++i)
 	{
 
-		pclPoint.r = 0;
-		pclPoint.g = 255 ;
-		pclPoint.b = 0;
+		pclPoint.x = input_cloud->points[i].x;
+		pclPoint.y = input_cloud->points[i].y;
+		pclPoint.z = input_cloud->points[i].z;
+
+		pclPoint.r = min + rand() % (( max + 1 ) - min);;
+		pclPoint.g = min + rand() % (( max + 1 ) - min);;
+		pclPoint.b = min + rand() % (( max + 1 ) - min);;
+
 
 		pointcloud_xyzrgb->points.push_back(pclPoint);
 
@@ -167,6 +176,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 
 		}
 	}
+
 	return reduced_pc;
 }
 
@@ -218,6 +228,16 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
 	Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >clusterVec_pc;
 
+	int min = 0;
+	int max = 150;
+
+	int r,g,b;
+
+	r = min + rand() % (( max + 1 ) - min);;
+	g = min + rand() % (( max + 1 ) - min);;
+	b = min + rand() % (( max + 1 ) - min);;
+
+
 	// avoid crashing
 	if(clusters.size() > 0)
 	{
@@ -238,9 +258,10 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 					clusteredPP.y=reduced_pc->points[clusters[numCluster].indices[i]].y;
 					clusteredPP.z=reduced_pc->points[clusters[numCluster].indices[i]].z; 
 
-					clusteredPP.r =0;
-					clusteredPP.g =0;
-					clusteredPP.b =255;
+					clusteredPP.r = r;
+					clusteredPP.g = g;
+					clusteredPP.b = b;
+
 
 					// adding single points to point cloud cluster, these are the object point lying outsidee the plane 
 					cluster_pc->points.push_back(clusteredPP);
@@ -252,7 +273,6 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 
 		} // end clusters
 
-		//std::cout << "Number of clusters: " << clusterVec_pc.size () << std::endl;
 		return clusterVec_pc;
 
 	}; //end if
@@ -286,6 +306,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::projectPointsOnPl
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
 {
 
+ // segmentattin object 
   pcl::SACSegmentationFromNormals<pcl::PointXYZRGB, pcl::Normal> seg; 
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
@@ -294,7 +315,18 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPo
   pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points (new pcl::PointCloud<pcl::PointXYZRGB>);
 
+	// check if cylinders rotation axis is orthogonal to the door plane
 
+	// ===================Definition of coefficients_cylinder ==========
+	//  point_on_axis.x : the X coordinate of a point located on the cylinder axis 0
+	// point_on_axis.y : the Y coordinate of a point located on the cylinder axis  1
+	// point_on_axis.z : the Z coordinate of a point located on the cylinder axis 2
+	// axis_direction.x : the X coordinate of the cylinder's axis direction 3 
+	// axis_direction.y : the Y coordinate of the cylinder's axis direction 4
+	// axis_direction.z : the Z coordinate of the cylinder's axis direction 5
+	// radius : the cylinder's radius
+
+ // actual cylinder fitting using RANSAC
   seg.setOptimizeCoefficients (true);
   seg.setModelType (pcl::SACMODEL_CYLINDER);
   seg.setMethodType (pcl::SAC_RANSAC);
@@ -306,14 +338,13 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPo
   seg.setInputCloud (input_point_cloud);
   seg.setInputNormals (input_point_cloud_normals);
 
-   //Obtain the cylinder inliers and coefficients
+   //Obtain the cylinder inliers and geometrical coefficients
   seg.segment (*inliers_cylinder, *coefficients_cylinder);
 
 
- 
-
+// check whether cylinder's rotational axis and door planes normals are orthogonal 
   double angle_cylinder_plane = checkOrientationAndGeometryOfCylinder(coefficients_cylinder,plane_coefficients);
-
+	
 	if (abs(angle_cylinder_plane-90.0) <  max_diff_norm_axis_)
 	{
 	// plane and cylinder parallel --> assuming a door handle --> further analysis
@@ -321,29 +352,15 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPo
     	  extract.setIndices (inliers_cylinder);
     	  extract.setNegative (false);
           extract.filter (*cylinder_points);
-		  checkCylindersProjection(cylinder_points,plane_coefficients);
-		
-
-std::cout<<cylinder_points->points[5].x << std::endl;
-
+		std::cout << "Angle: " << angle_cylinder_plane << "°" << std::endl;
+		std::cout << "Radius: " << coefficients_cylinder->values[6] * 100 << " cm" << std::endl;	
 	}
-
 
   return cylinder_points;
 }
 
 double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)
 {
-	// check if cylinders rotation axis is orthogonal to the door plane
-
-	// ===================Definition of coefficients_cylinder ==========
-	//  point_on_axis.x : the X coordinate of a point located on the cylinder axis 0
-	// point_on_axis.y : the Y coordinate of a point located on the cylinder axis  1
-	// point_on_axis.z : the Z coordinate of a point located on the cylinder axis 2
-	// axis_direction.x : the X coordinate of the cylinder's axis direction 3 
-	// axis_direction.y : the Y coordinate of the cylinder's axis direction 4
-	// axis_direction.z : the Z coordinate of the cylinder's axis direction 5
-	// radius : the cylinder's radius
 
 	int offset = 3;
 	double scalar_prod = 0;
@@ -368,35 +385,22 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 
 }
 
-  void PointCloudSegmentation::checkCylindersProjection(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points,pcl::ModelCoefficients::Ptr plane_coeff)
+ Eigen::Matrix4f PointCloudSegmentation::calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud)
   {
  
- 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr projected_cylinder_points = projectPointsOnPlane(cylinder_points,plane_coeff);
-
-
-
-
-		
-
 	 // Compute principal directions
 	Eigen::Vector4f pcaCentroid;
-	pcl::compute3DCentroid(*projected_cylinder_points, pcaCentroid);
+	pcl::compute3DCentroid(*point_cloud, pcaCentroid);
 	Eigen::Matrix3f covariance;
 
 	// calculation of the covariance matrix
-	computeCovarianceMatrixNormalized(*projected_cylinder_points, pcaCentroid, covariance);
+	computeCovarianceMatrixNormalized(*point_cloud, pcaCentroid, covariance);
 	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
 
 	// compute eigenvectors
 	Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
-		eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
      
-
-	//std::cerr << std::endl << "EigenVectors: " << pca.getEigenVectors() << std::endl;
-	//std::cerr << std::endl << "EigenValues: " << pca.getEigenValues() << std::endl;
-	// In this case, pca.getEigenVectors() gives similar eigenVectors to eigenVectorsPCA.
-	
-
 
 //These eigenvectors are used to transform the point cloud to the origin point (0, 0, 0) such that the eigenvectors correspond to the axes of the space. 
 // The minimum point, maximum point, and the middle of the diagonal between these two points are calculated for the transformed cloud (also referred to as the projected cloud when using PCL's PCA interface, or reference cloud by Nicola).
@@ -404,38 +408,29 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 	// Transform the original cloud to the origin where the principal components correspond to the axes.
 	Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
 	projectionTransform.block<3,3>(0,0) = eigenVectorsPCA;
-
 	projectionTransform.block<3,1>(0,3) = -1.f * (projectionTransform.block<3,3>(0,0) * pcaCentroid.head<3>());
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPointsProjected (new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-	pcl::transformPointCloud(*projected_cylinder_points, *cloudPointsProjected, projectionTransform);
-
-
+	pcl::transformPointCloud(*point_cloud, *point_cloud_pca, projectionTransform);
 
 	// Get the minimum and maximum points of the transformed cloud.
 	pcl::PointXYZRGB minPoint, maxPoint;
-	pcl::getMinMax3D(*cloudPointsProjected, minPoint, maxPoint);
-
-
+	pcl::getMinMax3D(*point_cloud_pca, minPoint, maxPoint);
 	const Eigen::Vector3f meanDiagonal = 0.5f*(maxPoint.getVector3fMap() + minPoint.getVector3fMap());
 
-// 	 std::cout <<"Min x: "  << minPoint.x <<std::endl;
-// 	 std::cout <<"Max x: "  << maxPoint.x <<std::endl;
-
-//	 std::cout <<"Min y: "  << minPoint.y <<std::endl;
-// 	 std::cout <<"Max y: "  << maxPoint.y <<std::endl;
-
-// Finally, the quaternion is calculated using the eigenvectors (which determines how the final box gets rotated), 
-// and the transform to put the box in correct location is calculated. 
-// The minimum and maximum points are used to determine the box width, height, and depth. 
-
- 	const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
- 	const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
+		// Final transform
+	const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations https://www.youtube.com/watch?v=mHVwd8gYLnI
+	const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
 
 
-  std::cout <<"Width: "  <<maxPoint.x-minPoint.x*100 << " cm" << std::endl;
-  std::cout <<"Height: "  << maxPoint.y-minPoint.y*100 << " cm" << std::endl;
+	double rect_width = (maxPoint.x-minPoint.x)*100;
+	double rect_height =  (maxPoint.y-minPoint.y)*100;
+	double rect_depth = (maxPoint.z-minPoint.z)*100;
 
+		std::cout <<"Width: "  << rect_width << " cm" << std::endl;
+		std::cout <<"Height: "  << rect_height << " cm" << std::endl;
+		std::cout <<"Depth: "  << rect_depth << " cm" << std::endl;
 
+	return projectionTransform;
 
   }
