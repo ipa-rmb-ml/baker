@@ -37,6 +37,7 @@
 #include <pcl/filters/voxel_grid.h>
 
 #include <iostream>
+#include <fstream>
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/features/normal_3d.h>
@@ -59,10 +60,11 @@ FeatureCloudGeneration();
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLXYZ(std::string filePath);
 std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >  loadGeneratedTemplatePCLFeatures(std::string filePath);
 std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >  loadGeneratedTemplatePCLNormals(std::string filePath);
+std::vector<Eigen::Matrix4f> loadGeneratedPCATransformations(std::string filePath);
 
-bool icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+Eigen::Matrix4f icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
-bool featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals);
+Eigen::Matrix4f  featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals);
 
 pcl::PointCloud<pcl::Normal>::Ptr calculateSurfaceNormals(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
 
@@ -74,9 +76,14 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr downSamplePointCloud(pcl::PointCloud<pcl:
 
 private:
 
+
+
 double alignment_eps_; //
 double alignment_thres_;
-double max_num_iter_; //1000
+
+int max_num_iter_icp_ref_;
+double corresp_dist_step_;
+int max_num_iter_; //1000
 double similarity_thres_; //0.9f
 
 double rad_search_dist_; //0.03

@@ -56,5 +56,6 @@ private:
 	std::string filePathXYZRGB_;
 	std::string filePathNormals_;
 	std::string filePathFeatures_;
+	std::string filePathPCATransformations_;
 };
 

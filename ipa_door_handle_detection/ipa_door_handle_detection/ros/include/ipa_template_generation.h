@@ -56,11 +56,12 @@ DoorHandleTemplateGeneration(std::string file_path_to_point_clouds);
 
 void generateTemplatePCLFiles(std::string file_path_to_point_clouds);
 
-
 private:
 
 std::string targetPathXYZRGB_;
 std::string targetPathNormals_;
 std::string targetPathFeatures_;
+std::string targetPathPCA_;
+std::string targetPathEigen_;
 
 };
