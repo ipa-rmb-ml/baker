@@ -47,6 +47,10 @@
 
 #include <boost/thread/mutex.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <stdlib.h>                                                             
+#include <stdio.h>    
+#include <string>
+#include <cstdlib>
 
 // based on PointCloudDataImport class 
 // generating the template databasa for various door handle types 
@@ -71,6 +75,9 @@ pcl::PointCloud<pcl::Normal>::Ptr calculateSurfaceNormals(pcl::PointCloud<pcl::P
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr calculate3DFeatures(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud, pcl::PointCloud<pcl::Normal>::Ptr cloud_normals);
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr downSamplePointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud);
+
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
+Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlignmentObject(std::vector <pcl::PointIndices> clusters,pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc, pcl::ModelCoefficients::Ptr plane_coeff);
 
 
 
