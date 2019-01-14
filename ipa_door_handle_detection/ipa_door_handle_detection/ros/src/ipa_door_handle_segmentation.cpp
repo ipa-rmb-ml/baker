@@ -231,12 +231,6 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 	int min = 0;
 	int max = 150;
 
-	int r,g,b;
-
-	r = min + rand() % (( max + 1 ) - min);;
-	g = min + rand() % (( max + 1 ) - min);;
-	b = min + rand() % (( max + 1 ) - min);;
-
 
 	// avoid crashing
 	if(clusters.size() > 0)
@@ -258,9 +252,9 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 					clusteredPP.y=reduced_pc->points[clusters[numCluster].indices[i]].y;
 					clusteredPP.z=reduced_pc->points[clusters[numCluster].indices[i]].z; 
 
-					clusteredPP.r = r;
-					clusteredPP.g = g;
-					clusteredPP.b = b;
+					clusteredPP.r = 0;
+					clusteredPP.g = 0;
+					clusteredPP.b = 255;
 
 
 					// adding single points to point cloud cluster, these are the object point lying outsidee the plane 
@@ -397,9 +391,44 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 	computeCovarianceMatrixNormalized(*point_cloud, pcaCentroid, covariance);
 	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
 
-	// compute eigenvectors
+	Eigen::Matrix3f ev;
+	Eigen::Vector3f vec;
+	vec << 1,2,3;
+	ev.setZero();
+	
+
+
 	Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
-	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+	ev.block<3,1>(0,0) = eigen_solver.eigenvalues();
+	ev.block<3,1>(0,1) = vec;
+
+
+	// sorting EV in descending order
+	// min eigenvalue | num before sort
+	// mid eigenvalue | num before sort
+	// max eigenvalues |num before sort 
+	std::sort(ev.data(),ev.data()+ev.size());
+
+	int pos_ev_1 = ev(2,2);
+	int pos_ev_2 = ev(1,2);
+
+
+
+
+	Eigen::Vector3f eigenVectorPCA_x = eigenVectorsPCA.col(2);
+	Eigen::Vector3f eigenVectorPCA_y = eigenVectorsPCA.col(1);
+	Eigen::Vector3f eigenVectorPCA_z = eigenVectorPCA_x.cross(eigenVectorPCA_y);
+
+
+	//std::cout<<eigenVectorsPCA<<std::endl;
+	//std::cout<<"evx " << eigenVectorsPCA.col(ev(2,1)) <<std::endl;
+	//std::cout<< "ev "  << eigen_solver.eigenval()<<std::endl;
+	std::cout<< "evx "  <<pos_ev_1<<std::endl;
+std::cout<< "evy "  <<pos_ev_2<<std::endl;
+
+
+
+//	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
      
 
 //These eigenvectors are used to transform the point cloud to the origin point (0, 0, 0) such that the eigenvectors correspond to the axes of the space. 
@@ -407,7 +436,10 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 
 	// Transform the original cloud to the origin where the principal components correspond to the axes.
 	Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
-	projectionTransform.block<3,3>(0,0) = eigenVectorsPCA;
+	projectionTransform.block<3,1>(0,0) = eigenVectorPCA_x;
+	projectionTransform.block<3,1>(0,1) = eigenVectorPCA_y;
+	projectionTransform.block<3,1>(0,2) = eigenVectorPCA_z;
+
 	projectionTransform.block<3,1>(0,3) = -1.f * (projectionTransform.block<3,3>(0,0) * pcaCentroid.head<3>());
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -426,10 +458,6 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 	double rect_width = (maxPoint.x-minPoint.x)*100;
 	double rect_height =  (maxPoint.y-minPoint.y)*100;
 	double rect_depth = (maxPoint.z-minPoint.z)*100;
-
-		std::cout <<"Width: "  << rect_width << " cm" << std::endl;
-		std::cout <<"Height: "  << rect_height << " cm" << std::endl;
-		std::cout <<"Depth: "  << rect_depth << " cm" << std::endl;
 
 	return projectionTransform;
 

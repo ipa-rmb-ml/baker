@@ -121,38 +121,51 @@ std::vector<Eigen::Matrix4f> FeatureCloudGeneration::loadGeneratedPCATransformat
     if(pDIR=opendir(filePath.c_str()))
 		{
       while(entry = readdir(pDIR)){
+
           if( strcmp(entry->d_name,filePath.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 &&  strcmp(entry->d_name, ".") != 0)
 							{
 
-
+                Eigen::Matrix4f trafo_pca(4,4);
 
 							//load PCD File and perform segmentation
 								std::string txtFile =  filePath + entry->d_name;
 
+                std::ifstream indata;
+                indata.open(txtFile.c_str());
 
-                std::vector<string>  str_vec;
-                Eigen::Matrix4f pca_transform(4,4);
+                std::vector <double> mat_element_vec;
+                double mat_element;
+                int rows = 0;
+                int cols = 0;
+                int counter = 0;
+
+
 
               std::string line;
-              std::ifstream myfile ("/home/rmb-ml/Desktop/PointCloudData/templateDataPCATrafo/aaa.txt");
-                if (myfile.is_open())
+
+            // read out lines
+              while (std::getline(indata, line, '\n')){
+
+                  indata >> mat_element;  
+                  mat_element_vec.push_back(mat_element);
+              }
+
+             // fill trafo_pca matrix with data from the txt file
+              for (int row = 0; row < 4; row++)
+              {
+                for (int col = 0; col < 4; col ++)
                 {
-                  while ( getline (myfile,line) )
-                  {
-                    str_vec.push_back(line);
-                  }
-                  myfile.close();
+
+                    trafo_pca(row,col) = mat_element_vec.at(counter);
+                    counter += 1;
                 }
-  
+              }
 
-                  
+                // push traf_pca data into final vector
+                pca_transformation_vec.push_back(trafo_pca);
 
-	
-
-
-
-							}
-       }
+						} // end if
+       }// end while
             closedir(pDIR);
     }
 

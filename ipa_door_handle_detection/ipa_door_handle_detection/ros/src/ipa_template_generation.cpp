@@ -17,6 +17,66 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 
 // OFFLINE PART -> TEMPLATE GENERATION	
 
+	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
+	Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > DoorHandleTemplateGeneration::generateTemplateAlignmentObject(std::vector <pcl::PointIndices> clusters,pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc, pcl::ModelCoefficients::Ptr plane_coeff)
+{
+
+    pcl::PointXYZRGB clusteredPP;
+   //write each cluster to as point cloud
+   //vector to store clusters
+	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
+	Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >clusterVec_pc;
+
+	int min = 0;
+	int max = 150;
+
+
+
+
+	// avoid crashing
+	if(clusters.size() > 0)
+	{
+	// iterate over cluster
+		for (int numCluster =0; numCluster < clusters.size(); numCluster=numCluster +1)
+		{
+			// randomize cluster color in pc for visualization
+
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+				// iterate over points in cluster to color them in diferent colors
+				for (size_t i = 0; i < clusters[numCluster].indices.size (); ++i)
+				{
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster_pt_proj_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+					pcl::PointXYZRGB clusteredPP_proj;
+
+					clusteredPP.x=reduced_pc->points[clusters[numCluster].indices[i]].x;
+					clusteredPP.y=reduced_pc->points[clusters[numCluster].indices[i]].y;
+					clusteredPP.z=reduced_pc->points[clusters[numCluster].indices[i]].z; 
+
+					clusteredPP.r = 255;
+					clusteredPP.g = 0;
+					clusteredPP.b = 0;
+
+
+					// adding single points to point cloud cluster, these are the object point lying outsidee the plane 
+					cluster_pc->points.push_back(clusteredPP);
+
+
+				} 
+
+				clusterVec_pc.push_back(cluster_pc);
+
+		} // end clusters
+
+		return clusterVec_pc;
+
+	}; //end if
+    
+	std::cout << "No cluster found"<< std::endl;
+	return clusterVec_pc; 
+}
+
+
 void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std:: string file_path_to_point_clouds)
 {
 
@@ -83,7 +143,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 										if (door_handle_cluster.size()== 1)
 										{
 											
-											template_cluster_vec= seg.generateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
+											template_cluster_vec= generateTemplateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
 											// calculate xyzrgb point cloud
 											*template_cloud_reduced = *template_cluster_vec[0];
 											template_cloud_reduced->width = 1;
@@ -123,8 +183,16 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 											std::cout << "Writing PCA Transformation..." << std::endl;	
 											std::ofstream fout;
 											fout.open(filePathTXTWriteEigen.c_str());
-											fout << transform_pca;
-										
+
+											fout <<	"\n";
+											for (int r = 0; r < transform_pca.rows(); r++)
+											{
+												for (int c = 0; c <transform_pca.cols();c++)
+												{
+													fout <<transform_pca(r,c) << "\n";
+												}
+											}
+												
 										}
 
 									}

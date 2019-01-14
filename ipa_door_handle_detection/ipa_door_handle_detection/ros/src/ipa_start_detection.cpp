@@ -36,6 +36,7 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_rotated (new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 
@@ -107,21 +108,37 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 					// apply transformation
 					pcl::transformPointCloud (*assumed_handle_cloud, *assumed_handle_cloud_pca, pca_transform_assumed);
 
-
-
 					// load pca_transformation from TXT File
+					Eigen::Matrix4f pca_transform_template = template_door_handles_pca_vec[num_cluster_template];
 
-					//Eigen::Matrix4f pca_transform_template = template_door_handles_pca_vec[num_cluster_template];
+					// find transformation between template and assumed handle
+					// template_pca * R = assumed_pca;
+					// R = assumed_pca * template_pca^T
+
+					Eigen::Matrix3f rotation_pca = pca_transform_assumed.block<3,3>(0,0) * pca_transform_template.block<3,3>(0,0).transpose();
+
+					// apply transformation on template 
+					Eigen::Matrix4f hom_rotation_pca = Eigen::Matrix4f::Identity();
+					hom_rotation_pca.block<3,3>(0,0) = rotation_pca;
+
+					//std::cout << "template_pca" << pca_transform_template<< std::endl;
+				//	std::cout << "rotation_template_assumed" << pca_transform_template<< std::endl;
 
 
 
+					// apply estimated rotation to the assumed handle
+					pcl::transformPointCloud (*template_cloud, *template_cloud_rotated, hom_rotation_pca);
 
+					
+				
+			
+
+	
 
 
 
 			//	if (icp_transformation.setZero())	
 				//	{
-						std::cout << "Door handle detected" << std::endl;
 						cylinder_point_cloud = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
 				//	}
 				//	else
@@ -132,7 +149,7 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 				*published_pc+= *assumed_handle_cloud_pca;//*assumed_door_handles_pc_vec[numCluster];
 			
-				*published_pc+= *template_cloud;
+				*published_pc+= *template_cloud_rotated;
 
 				}
 			}
