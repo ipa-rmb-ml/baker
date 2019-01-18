@@ -61,11 +61,11 @@ public:
 
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
+	Eigen::Vector2f alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
 
 	double checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
 
-	Eigen::Matrix4f  calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
+	Eigen::Matrix4f calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
 
 	// removing all object points that are too distant from the door plane
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff);

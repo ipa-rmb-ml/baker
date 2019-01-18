@@ -35,6 +35,7 @@
 #include <pcl/segmentation/region_growing.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/keypoints/sift_keypoint.h>
 
 #include <iostream>
 #include <fstream>
