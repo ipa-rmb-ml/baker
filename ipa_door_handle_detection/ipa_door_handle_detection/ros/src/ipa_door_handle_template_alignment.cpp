@@ -9,7 +9,7 @@ FeatureCloudGeneration::FeatureCloudGeneration()
 alignment_eps_ = 1e-6;
 alignment_thres_ = 1e-4;
 
- max_num_iter_icp_ref_ = 100;
+ max_num_iter_icp_ref_ = 5;
  corresp_dist_step_ = 0.01;
  max_num_iter_ = 1000;
  similarity_thres_ = 0.9f;
@@ -188,7 +188,7 @@ Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointClou
   pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
 
  //Set the maximum distance between two correspondences (src<->tgt) to 10cm
-  icp.setMaxCorrespondenceDistance (0.01);
+  icp.setMaxCorrespondenceDistance (0.001);
   icp.setTransformationEpsilon (alignment_eps_);
 
   pcl::PointCloud<pcl::PointXYZRGB> Final;
@@ -234,16 +234,16 @@ Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointClou
       double sum_squared =  pow(transformation (0,3),2) + pow(transformation (1,3),2) + pow(transformation (2,3),2);
 
 
-      std::cout << "================ICP================ " << std::endl;
-      std::cout << "Fitness Score: "<< score << std::endl;
-
-     // printf ("\n");
-     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
-     // printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
-     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
-     // printf ("\n");
-     // printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
-     // printf ("\n");
+     // std::cout << "================ICP================ " << std::endl;
+      std::cout << "Fitness Score ICP: "<< score << std::endl;
+      
+      printf ("\n");
+      printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
+      printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
+      printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
+      printf ("\n");
+      printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
+      printf ("\n");
 
       return transformation;
 
@@ -262,93 +262,13 @@ pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::Point
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,
 pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
 {
-    Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
-  	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_aligned(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    pcl::PointCloud<pcl::FPFHSignature33>::Ptr input_point_cloud_features;
-
-   //calculate features for point clpud and template based oon xyzrgb and priorly estimated surface normals
-    input_point_cloud_features = calculate3DFeatures(input_point_cloud,input_cloud_normals);
-
-    pcl::SampleConsensusPrerejective<pcl::PointXYZRGB, pcl:: PointXYZRGB, pcl::FPFHSignature33> align;
-
-    align.setInputSource (input_point_cloud);
-    align.setSourceFeatures (input_point_cloud_features);
-
-    align.setInputTarget (template_cloud);
-    align.setTargetFeatures (template_cloud_features);
 
 
 
- for (int i = 0; i < 2; ++i)
-  {
-    // Estimate
-    align.setInputSource (input_point_cloud);
-    align.setSourceFeatures (input_point_cloud_features);
+Eigen::Matrix4f transformation = transformation.setZero(4,4);
 
-    align.setInputTarget (template_cloud);
-    align.setTargetFeatures (template_cloud_features);;
-
-    align.setMaximumIterations (max_num_iter_); // Number of RANSAC iterations
-    align.setNumberOfSamples (3); // Number of points to sample for generating/prerejecting a pose
-    align.setCorrespondenceRandomness (3); // Number of nearest features to use
-    align.setSimilarityThreshold (similarity_thres_); // Polygonal edge length similarity threshold
-    align.setMaxCorrespondenceDistance (2.5f * 0.005f); // Inlier threshold
-    align.setInlierFraction (0.25f); // Required inlier fraction for accepting a pose hypothesis
-
-      //pcl::ScopeTime t("Alignment");
-    align.align (*cloud_aligned);
-
-		//accumulate transformation between each Iteration
-    Ti = align.getFinalTransformation () * Ti;
-    prev = align.getLastIncrementalTransformation ();
-
-
-		//if the difference between this transformation and the previous one
-		//is smaller than the threshold, refine the process by reducing
-		//the maximal correspondence distance
-    if (fabs ((align.getLastIncrementalTransformation () - prev).sum ()) < align.getTransformationEpsilon ())
-    {
-      align.setMaxCorrespondenceDistance (align.getMaxCorrespondenceDistance () - 0.001);
-    }
-    
-    prev = align.getLastIncrementalTransformation ();
-
-    if (align.getFitnessScore() < alignment_thres_ )
-    {
-      break;
-    }
-
-  }
-
-  Eigen::Matrix4f transformation;
-
-  if (align.hasConverged () && (align.getFitnessScore() < alignment_thres_))
-  {
-    // Print results
-    //printf ("\n");
-
-    //std::cout << "Door Handle Detection Score 3D Features: "<< align.getFitnessScore() << std::endl;
-      transformation = align.getFinalTransformation ();
-      
-      std::cout << "================ICP NORMALS================ " << std::endl;
-      std::cout << "Fitness Score: "<< align.getFitnessScore() << std::endl;
-    //  printf ("\n");
-    //  printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
-    //  printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
-    //  printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
-    //  printf ("\n");
-    //  printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
-    //  printf ("\n");
-
-      return transformation;
-  }
-  else
-  {
-
-    transformation = transformation.setZero(4,4);
-    return transformation;
-  }
+return transformation;
+  
 }
 
 

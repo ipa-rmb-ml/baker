@@ -271,7 +271,6 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
 
 	}; //end if
     
-	std::cout << "No cluster found"<< std::endl;
 	return clusterVec_pc; 
 }
 
@@ -297,7 +296,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::projectPointsOnPl
 // project cylinder on plane and check weather all points lying inside of a rectangle --> rect with height == door handles diameter
 
 
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
+ Eigen::Vector2f PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
 {
 
  // segmentattin object 
@@ -307,7 +306,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPo
   pcl::PointCloud<pcl::Normal>::Ptr cyl_normals (new pcl::PointCloud<pcl::Normal>);
   pcl::PointIndices::Ptr inliers_cylinder (new pcl::PointIndices);
   pcl::ModelCoefficients::Ptr coefficients_cylinder (new pcl::ModelCoefficients);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+  Eigen::Vector2f cylinder_geometry;
 
 	// check if cylinders rotation axis is orthogonal to the door plane
 
@@ -341,16 +341,14 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::alignCylinderToPo
 	
 	if (abs(angle_cylinder_plane-90.0) <  max_diff_norm_axis_)
 	{
-	// plane and cylinder parallel --> assuming a door handle --> further analysis
-		  extract.setInputCloud (input_point_cloud);
-    	  extract.setIndices (inliers_cylinder);
-    	  extract.setNegative (false);
-          extract.filter (*cylinder_points);
-		std::cout << "Angle: " << angle_cylinder_plane << "°" << std::endl;
-		std::cout << "Radius: " << coefficients_cylinder->values[6] * 100 << " cm" << std::endl;	
+
+		cylinder_geometry << angle_cylinder_plane, coefficients_cylinder->values[6] ;
+
+	//	std::cout << "Angle: " << angle_cylinder_plane << "°" << std::endl;
+	//	std::cout << "Radius: " << coefficients_cylinder->values[6] * 100 << " cm" << std::endl;	
 	}
 
-  return cylinder_points;
+  return cylinder_geometry;
 }
 
 double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)
@@ -393,7 +391,7 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 
 	Eigen::Matrix3f ev;
 	Eigen::Vector3f vec;
-	vec << 1,2,3;
+	vec << 0,1,2;
 	ev.setZero();
 	
 
@@ -413,23 +411,12 @@ double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::Model
 	int pos_ev_2 = ev(1,2);
 
 
-
-
-	Eigen::Vector3f eigenVectorPCA_x = eigenVectorsPCA.col(2);
-	Eigen::Vector3f eigenVectorPCA_y = eigenVectorsPCA.col(1);
+	// calculating Eigenvectors
+	Eigen::Vector3f eigenVectorPCA_x = eigenVectorsPCA.col(pos_ev_1);
+	Eigen::Vector3f eigenVectorPCA_y = eigenVectorsPCA.col(pos_ev_2);
 	Eigen::Vector3f eigenVectorPCA_z = eigenVectorPCA_x.cross(eigenVectorPCA_y);
 
 
-	//std::cout<<eigenVectorsPCA<<std::endl;
-	//std::cout<<"evx " << eigenVectorsPCA.col(ev(2,1)) <<std::endl;
-	//std::cout<< "ev "  << eigen_solver.eigenval()<<std::endl;
-	std::cout<< "evx "  <<pos_ev_1<<std::endl;
-std::cout<< "evy "  <<pos_ev_2<<std::endl;
-
-
-
-//	eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));  /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
-     
 
 //These eigenvectors are used to transform the point cloud to the origin point (0, 0, 0) such that the eigenvectors correspond to the axes of the space. 
 // The minimum point, maximum point, and the middle of the diagonal between these two points are calculated for the transformed cloud (also referred to as the projected cloud when using PCL's PCA interface, or reference cloud by Nicola).

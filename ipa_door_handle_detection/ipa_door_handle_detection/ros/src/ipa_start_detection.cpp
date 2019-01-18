@@ -34,9 +34,10 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	// ==================== ACTUAL CALCULATION:START ==========================================================================================================
 
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_rotated (new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud_final(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 
@@ -59,121 +60,95 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 		FeatureCloudGeneration featureObj;
 
-		// decide on which template you would like to operate
-		// 1. XYZ
-		// 2. Normals and Features 
 
-		// 1. xyz
-		std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
-		Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > template_door_handles_pc_vec_xyz = featureObj.loadGeneratedTemplatePCLXYZ(filePathXYZRGB_);
-
-		// 2. normals
-		std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,
-		Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> > template_door_handles_pc_vec_features = featureObj.loadGeneratedTemplatePCLFeatures(filePathFeatures_);
-
-		// 3. features
-		std::vector<pcl::PointCloud<pcl::Normal>::Ptr,
-		Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >template_door_handles_pc_vec_normals = featureObj.loadGeneratedTemplatePCLNormals(filePathNormals_);
-
-		// 4. PCA
-		std::vector<Eigen::Matrix4f> template_door_handles_pca_vec = featureObj.loadGeneratedPCATransformations(filePathPCATransformations_);
-
-	   // Iterate over assumed_door_handles_pc_vec and template_door_handles_pc_vec to compare by...
-	   // 1. ICP
-	   // 2. 3D Features
-
-	// check if normal vec size is equal to to feature vec size
-	if (template_door_handles_pc_vec_features.size()==template_door_handles_pc_vec_normals.size())
-	{
-		int template_vec_size  = template_door_handles_pc_vec_features.size();
 
 		for (int num_cluster_assumed = 0; num_cluster_assumed < assumed_door_handles_pc_vec.size (); ++num_cluster_assumed) // 
 		{
-			for (int num_cluster_template = 0; num_cluster_template < template_vec_size; ++num_cluster_template) // template loop
-			{
-				if (assumed_door_handles_pc_vec[num_cluster_assumed]->points.size() > 0)
-				{	
-					pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals = template_door_handles_pc_vec_normals[num_cluster_template];
-					pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features = template_door_handles_pc_vec_features[num_cluster_template];
-					pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud = template_door_handles_pc_vec_xyz[num_cluster_template];
 
 					pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud = assumed_door_handles_pc_vec[num_cluster_assumed];		
 					assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
 					pcl::PointCloud<pcl::Normal>:: Ptr assumed_handle_cloud_normals =  featureObj.calculateSurfaceNormals(assumed_handle_cloud);
 
 
-					// perform PCA to estimate the axes with highst variance
-					// pointcloud transformed --> centroid of point cloud new coordinate system
+					// estimate preconditions
 					Eigen::Matrix4f pca_transform_assumed =  segObj.calculatePCA(assumed_handle_cloud);
-					// apply transformation
+					// apply transformation on assumed handle cloud
 					pcl::transformPointCloud (*assumed_handle_cloud, *assumed_handle_cloud_pca, pca_transform_assumed);
-
-					// load pca_transformation from TXT File
-					Eigen::Matrix4f pca_transform_template = template_door_handles_pca_vec[num_cluster_template];
-
-					// find transformation between template and assumed handle
-					// template_pca * R = assumed_pca;
-					// R = assumed_pca * template_pca^T
-
-					Eigen::Matrix3f rotation_pca = pca_transform_assumed.block<3,3>(0,0) * pca_transform_template.block<3,3>(0,0).transpose();
-
-					// apply transformation on template 
-					Eigen::Matrix4f hom_rotation_pca = Eigen::Matrix4f::Identity();
-					hom_rotation_pca.block<3,3>(0,0) = rotation_pca;
-
-					//std::cout << "template_pca" << pca_transform_template<< std::endl;
-				//	std::cout << "rotation_template_assumed" << pca_transform_template<< std::endl;
+					Eigen::Vector2f cylinder_geometry = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
 
 
+			// based on mean diag and cylinder radius decide in which subfolder to go --> iterate through the templates in this particular folder
 
-					// apply estimated rotation to the assumed handle
-					pcl::transformPointCloud (*template_cloud, *template_cloud_rotated, hom_rotation_pca);
-
+					// possible conditions:
+					// mean diag
+					// BB width, height, lenght
+					// aligned cylinder diameter
 					
-				
-			
-
-	
 
 
+			 	// if num_cluster_assumed meets conditions
+				 		// do :
 
-			//	if (icp_transformation.setZero())	
-				//	{
-						cylinder_point_cloud = segObj.alignCylinderToPointCloud(assumed_handle_cloud,assumed_handle_cloud_normals,plane_coefficients);
-				//	}
-				//	else
-				//	{
-						//continue;	
-					//}
+								// switch directory based on met condition
 
 
-				*published_pc+= *assumed_handle_cloud_pca;//*assumed_door_handles_pc_vec[numCluster];
-			
-				*published_pc+= *template_cloud_rotated;
+									// 1. xyz
+									std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
+									Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > template_door_handles_pc_vec_xyz = featureObj.loadGeneratedTemplatePCLXYZ(filePathXYZRGB_);
 
-				}
+									// 2. normals
+									std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,
+									Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> > template_door_handles_pc_vec_features = featureObj.loadGeneratedTemplatePCLFeatures(filePathFeatures_);
+
+									// 3. features
+									std::vector<pcl::PointCloud<pcl::Normal>::Ptr,
+									Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >template_door_handles_pc_vec_normals = featureObj.loadGeneratedTemplatePCLNormals(filePathNormals_);
+
+									// 4. PCA
+									std::vector<Eigen::Matrix4f> template_door_handles_pca_vec = featureObj.loadGeneratedPCATransformations(filePathPCATransformations_);
+
+
+				// else:
+				// continue to jump to the next cluster 
+				// 
+
+
+											for (int num_cluster_template = 0; num_cluster_template < template_door_handles_pc_vec_xyz.size(); ++num_cluster_template) // template loop
+											{
+												if (assumed_door_handles_pc_vec[num_cluster_assumed]->points.size() > 0)
+												{	
+													pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals = template_door_handles_pc_vec_normals[num_cluster_template];
+													pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features = template_door_handles_pc_vec_features[num_cluster_template];
+													// already tranformed appling PCA
+													pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud = template_door_handles_pc_vec_xyz[num_cluster_template];
+
+											
+
+													Eigen::Matrix4f feature_based_trafo_mat = featureObj.featureBasedTemplateAlignment(assumed_handle_cloud_pca,assumed_handle_cloud_normals,template_cloud,template_cloud_features,template_cloud_normals);
+													Eigen::Matrix4f icp_trafo_mat = featureObj.icpBasedTemplateAlignment(assumed_handle_cloud_pca,template_cloud);
+
+
+
+
+													// apply estimated homogeneous trafo on the assumed_handle_cloud_pca
+													pcl::transformPointCloud (*assumed_handle_cloud_pca,*assumed_handle_cloud_final, icp_trafo_mat);
+
+
+															*published_pc+= *assumed_handle_cloud_final;
+															*published_pc+= *template_cloud;
+
+															pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
+															point_cloud_out_msg_->header.frame_id = "camera_link";
+															pub_.publish(point_cloud_out_msg_);
+													
+												}
 			}
+		
 		}
 
-	}
-
 	//============VISUALIZATION =========
-	// publish changed point cloud
-	//	if (!assumed_door_handles_pc_vec.empty())
-		//{	
-			// concentrate all cluster for visualization
-		//	for (int numCluster = 0; numCluster < assumed_door_handles_pc_vec.size (); ++numCluster)
-		//	{			
-	
 
-
-				
-			
-		//	}
-
-			pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
-			point_cloud_out_msg_->header.frame_id = "camera_link";
-			pub_.publish(point_cloud_out_msg_);
+		
 //		}
 
 	//============VISUALIZATION ========
