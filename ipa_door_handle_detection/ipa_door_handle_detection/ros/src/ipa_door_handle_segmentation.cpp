@@ -21,6 +21,7 @@ max_door_robot_ = 1.5;
 // min and max radius should be discussed
 cylinder_rad_min_ = 0.01;
 cylinder_rad_max_ = 0.1;
+inlier_ratio_thres_ = 0.95;
 
 
 // segmentation params
@@ -31,9 +32,10 @@ min_cluster_size_ = 500;
 max_cluster_size_ = 1000000;
 
 
+
 // angle between cyliders axis and door planes normals
 // maximal difference for both to be orthogonal 
-max_diff_norm_axis_ = 3.0;
+max_diff_norm_axis_ = 7;
 
 }
 
@@ -296,7 +298,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::projectPointsOnPl
 // project cylinder on plane and check weather all points lying inside of a rectangle --> rect with height == door handles diameter
 
 
- Eigen::Vector2f PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
+ bool PointCloudSegmentation::alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coefficients)
 {
 
  // segmentattin object 
@@ -336,19 +338,31 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::projectPointsOnPl
   seg.segment (*inliers_cylinder, *coefficients_cylinder);
 
 
+double num_inliers = inliers_cylinder->indices.size();
+double num_point_cloud = input_point_cloud->points.size();
+
+double ratio_inliers = num_inliers/num_point_cloud;
+
+
+
 // check whether cylinder's rotational axis and door planes normals are orthogonal 
   double angle_cylinder_plane = checkOrientationAndGeometryOfCylinder(coefficients_cylinder,plane_coefficients);
+
+
 	
-	if (abs(angle_cylinder_plane-90.0) <  max_diff_norm_axis_)
+	if ( (abs(angle_cylinder_plane-90.0) <  20 ) && (ratio_inliers > inlier_ratio_thres_))
 	{
+		//std::cout<<inliers_cylinder->indices.size()<<std::endl;
+		//cylinder_geometry << angle_cylinder_plane, coefficients_cylinder->values[6] 
 
-		cylinder_geometry << angle_cylinder_plane, coefficients_cylinder->values[6] ;
 
-	//	std::cout << "Angle: " << angle_cylinder_plane << "°" << std::endl;
-	//	std::cout << "Radius: " << coefficients_cylinder->values[6] * 100 << " cm" << std::endl;	
+		std::cout << "Angle: " << angle_cylinder_plane << "°" << std::endl;
+		std::cout << "Radius: " << coefficients_cylinder->values[6] * 100 << " cm" << std::endl;
+
+	return true;
 	}
 
-  return cylinder_geometry;
+  return false;
 }
 
 double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)

@@ -182,7 +182,7 @@ std::vector<Eigen::Matrix4f> FeatureCloudGeneration::loadGeneratedPCATransformat
 
 
 
-Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud)
+icpInformation FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud)
 {
 
   pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
@@ -197,8 +197,8 @@ Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointClou
  for (int i = 0; i < max_num_iter_icp_ref_; ++i)
   {
     // Estimate
-    icp.setInputSource (input_point_cloud);
-    icp.setInputTarget(input_template_point_cloud);
+    icp.setInputSource (input_template_point_cloud);
+    icp.setInputTarget(input_point_cloud);
     icp.align (Final);
 
 		//accumulate transformation between each Iteration
@@ -220,39 +220,35 @@ Eigen::Matrix4f FeatureCloudGeneration::icpBasedTemplateAlignment(pcl::PointClou
     {
       break;
     }
-
   }
 
-  double score = icp.getFitnessScore();
-  Eigen::Matrix4f transformation;
+  // DECLARE STRUCT
+  icpInformation icp_data;
+	icp_data.icp_transformation = icp.getFinalTransformation ();
+ 	icp_data.icp_fitness_score = icp.getFitnessScore();
 
-  if (score < alignment_thres_)
-  {
-    //  std::cout << "Door Handle Detection Score ICP: "<< score << std::endl;
-      transformation = icp.getFinalTransformation ();
 
-      double sum_squared =  pow(transformation (0,3),2) + pow(transformation (1,3),2) + pow(transformation (2,3),2);
+
+  //
 
 
      // std::cout << "================ICP================ " << std::endl;
-      std::cout << "Fitness Score ICP: "<< score << std::endl;
+      //std::cout << "Fitness Score ICP: "<< score << std::endl;
       
-      printf ("\n");
-      printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
-      printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
-      printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
-      printf ("\n");
-      printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
-      printf ("\n");
+     // printf ("\n");
+     // printf ("    | %6.3f %6.3f %6.3f | \n", transformation (0,0), transformation (0,1), transformation (0,2));
+     // printf ("R = | %6.3f %6.3f %6.3f | \n", transformation (1,0), transformation (1,1), transformation (1,2));
+      //printf ("    | %6.3f %6.3f %6.3f | \n", transformation (2,0), transformation (2,1), transformation (2,2));
+    //  printf ("\n");
+    //  printf ("t = < %0.3f, %0.3f, %0.3f >\n", transformation (0,3), transformation (1,3), transformation(2,3));
+    //  printf ("\n");
 
-      return transformation;
 
-  }else
-  {
 
-    transformation = transformation.setZero(4,4);
-    return transformation;
-  }
+   return icp_data;
+  
+
+
 }
 
 
@@ -262,8 +258,6 @@ pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::Point
 pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,
 pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals)
 {
-
-
 
 Eigen::Matrix4f transformation = transformation.setZero(4,4);
 
