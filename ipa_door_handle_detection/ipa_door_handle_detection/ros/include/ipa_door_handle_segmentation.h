@@ -29,6 +29,8 @@
 #include <pcl/common/projection_matrix.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/registration/correspondence_rejection_sample_consensus.h>
+#include <pcl/correspondence.h>
 
 #include <pcl/search/search.h>
 #include <pcl/search/kdtree.h>
@@ -61,7 +63,7 @@ public:
 
 	planeInformation detectPlaneInPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud);
 
-	Eigen::Vector2f alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
+	bool  alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
 
 	double checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
 
@@ -101,6 +103,7 @@ int min_cluster_size_;
 int max_cluster_size_;
 
 double max_diff_norm_axis_;
+double inlier_ratio_thres_;
 
 };
 

@@ -19,6 +19,7 @@
 
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
+#include <pcl/registration/correspondence_rejection_median_distance.h>
 #include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
@@ -36,6 +37,15 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/keypoints/sift_keypoint.h>
+#include <pcl/features/range_image_border_extractor.h>
+#include <pcl/keypoints/narf_keypoint.h>
+#include <pcl/features/narf_descriptor.h>
+#include <pcl/registration/correspondence_rejection.h>
+#include <pcl/registration/correspondence_rejection_one_to_one.h>
+#include <pcl/registration/correspondence_rejection_sample_consensus.h>
+#include <pcl/registration/correspondence_rejection_trimmed.h>
+#include <pcl/registration/correspondence_rejection_var_trimmed.h>
+#include <pcl/registration/transformation_estimation_svd.h>
 
 #include <iostream>
 #include <fstream>
@@ -45,6 +55,11 @@
 #include <pcl/features/fpfh.h>
 #include <pcl/registration/ia_ransac.h>
 #include <pcl/registration/sample_consensus_prerejective.h>
+#include <pcl/registration/correspondence_rejection.h>
+#include <pcl/registration/correspondence_estimation.h>
+#include <pcl/registration/correspondence_rejection_distance.h>
+#include <pcl/features/principal_curvatures.h>
+#include <math.h>
 
 #include <boost/thread/mutex.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -52,6 +67,13 @@
 #include <stdio.h>    
 #include <string>
 #include <cstdlib>
+
+struct icpInformation
+{
+ Eigen::Matrix4f icp_transformation;
+ double icp_fitness_score;
+};
+
 
 // based on PointCloudDataImport class 
 // generating the template databasa for various door handle types 
@@ -67,7 +89,7 @@ std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<
 std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >  loadGeneratedTemplatePCLNormals(std::string filePath);
 std::vector<Eigen::Matrix4f> loadGeneratedPCATransformations(std::string filePath);
 
-Eigen::Matrix4f icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
+icpInformation icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
 Eigen::Matrix4f  featureBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_cloud_normals,pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud,pcl::PointCloud<pcl::FPFHSignature33>::Ptr template_cloud_features,pcl::PointCloud<pcl::Normal>::Ptr template_cloud_normals);
 
