@@ -57,5 +57,6 @@ private:
 	std::string filePathNormals_;
 	std::string filePathFeatures_;
 	std::string filePathPCATransformations_;
+	std::string filePathBBInformations_;
 };
 

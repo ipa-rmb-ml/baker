@@ -94,6 +94,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >  loadGeneratedTemplatePCLFeatures(std::string filePath);
 std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >  loadGeneratedTemplatePCLNormals(std::string filePath);
 std::vector<Eigen::Matrix4f> loadGeneratedPCATransformations(std::string filePath);
+std::vector<Eigen::Vector3f> loadGeneratedBBInformation(std::string filePath);
 
 icpInformation icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
@@ -110,10 +111,9 @@ Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlign
 
 std::vector<int> estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2);
 
+
+
 private:
-
-
-
 double alignment_eps_; //
 double alignment_thres_;
 

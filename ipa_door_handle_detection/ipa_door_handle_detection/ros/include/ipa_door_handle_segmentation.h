@@ -45,8 +45,14 @@
 
 	struct planeInformation
 	{
-	pcl::PointIndices::Ptr plane_point_cloud_indices;
-	pcl::ModelCoefficients::Ptr plane_coeff;
+		pcl::PointIndices::Ptr plane_point_cloud_indices;
+		pcl::ModelCoefficients::Ptr plane_coeff;
+	};
+
+	struct pcaInformation
+	{
+		Eigen::Matrix4f pca_transformation;
+		Eigen::Vector3f bounding_box_3D;
 	};
 
 // creates vector with pointclouds where each represents a cluster idintified by region growing
@@ -67,7 +73,7 @@ public:
 
 	double checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
 
-	Eigen::Matrix4f calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
+	pcaInformation calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
 
 	// removing all object points that are too distant from the door plane
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr minimizePointCloudToObject(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,pcl::PointIndices::Ptr plane_pc_indices,pcl::ModelCoefficients::Ptr plane_coeff);

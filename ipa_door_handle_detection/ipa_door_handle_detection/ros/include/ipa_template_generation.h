@@ -67,5 +67,6 @@ std::string targetPathNormals_;
 std::string targetPathFeatures_;
 std::string targetPathPCA_;
 std::string targetPathEigen_;
+std::string targetPathBB_;
 
 };
