@@ -35,6 +35,8 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::Normal>::Ptr assumed_handle_cloud_pca_normal (new pcl::PointCloud<pcl::Normal>);
+
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_pca(new pcl::PointCloud<pcl::PointXYZRGB>);
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_pca_best(new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -64,6 +66,9 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 
 	double sum_squared_err_min = 0.1;
+	double points_ratio_min = 0.8;
+
+
 	Eigen::Matrix4f final_transformation;
 
 
@@ -83,20 +88,43 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 
 
-
-
 		for (int num_cluster_assumed = 0; num_cluster_assumed < assumed_door_handles_pc_vec.size (); ++num_cluster_assumed) // 
 		{
 
 					pcl::PointCloud<pcl::PointXYZRGB>::Ptr assumed_handle_cloud = assumed_door_handles_pc_vec[num_cluster_assumed];		
-					assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
+
 
 					// estimate preconditions
 					Eigen::Matrix4f pca_assumed =  segObj.calculatePCA(assumed_handle_cloud);
+					assumed_handle_cloud = featureObj.downSamplePointCloud(assumed_handle_cloud);
+
+
 					// apply transformation on assumed handle cloud
 					pcl::transformPointCloud (*assumed_handle_cloud, *assumed_handle_cloud_pca, pca_assumed);
 
+
+					// check for cylinder 
+
+	
+					
+						assumed_handle_cloud_pca_normal =  featureObj.calculateSurfaceNormals(assumed_handle_cloud_pca);
+						bool isCylinder = segObj.alignCylinderToPointCloud(assumed_handle_cloud_pca,assumed_handle_cloud_pca_normal,plane_coefficients);
+					
+
+						if (!isCylinder)
+						{
+							continue;
+						}
+		
+
+
 					assumed_handle_cloud_pca_best_vec.push_back(assumed_handle_cloud_pca);
+
+
+					// determine size of the BB here to define in which template subfolder to go
+
+				 	// double size ....
+
 
 
 						for (int num_cluster_template = 0; num_cluster_template < template_door_handles_pc_vec_xyz.size(); ++num_cluster_template) // template loop
@@ -120,23 +148,21 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 													transform_hndl.setIdentity();
 													transform_hndl.block<3,3>(0,0) = pca_assumed.block<3,3>(0,0) * pca_template.block<3,3>(0,0).transpose();
 
-
 													pcl::transformPointCloud (*template_cloud_pca,*template_cloud_pca, transform_hndl);
 
 													icpInformation icp_data = featureObj.icpBasedTemplateAlignment(assumed_handle_cloud_pca,template_cloud_pca);
-
-																		// get actual fitness score
 													double fitness_score = icp_data.icp_fitness_score;
 													Eigen::Matrix4f icp_transformation = icp_data.icp_transformation;
 
 													pcl::transformPointCloud (*template_cloud_pca,*template_cloud_pca, icp_transformation);
 
+											        std::vector<int> indices = featureObj.estimateCorrespondences(assumed_handle_cloud_pca,template_cloud_pca);
 
-													// perform the correspondence estimation???
+													int number_correspondences = indices.size();
+													int number_points_cluster = assumed_handle_cloud_pca->points.size();
+													double points_ratio = (double )number_correspondences / (double) number_points_cluster;
 
-									
-
-														// get transformation 
+													// get transformation 
 													double sum_squared_err =  sqrt(icp_transformation(0,3) * icp_transformation(0,3) + icp_transformation (1,3) * icp_transformation (1,3) + icp_transformation (2,3)* icp_transformation (2,3));
 				
 														// for each assumed cluster  create a vector of 
@@ -144,9 +170,10 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 														// template 2 -- icp trafo
 
 
-														if (sum_squared_err < sum_squared_err_min)
+														if ((sum_squared_err < sum_squared_err_min) && (points_ratio > points_ratio_min))
 															{
 																sum_squared_err_min = sum_squared_err;
+																points_ratio_min = points_ratio;
 																template_cloud_pca_best = template_cloud_pca;
 															}
 								}	
@@ -185,60 +212,59 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 
 			assumed_handle_cloud_pca = assumed_handle_cloud_pca_best_vec[pos];
-
-			std::cout<<assumed_handle_cloud_pca->points.size()<<std::endl;
 			template_cloud_pca = template_cloud_pca_best_vec[pos];
 
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_filt(new pcl::PointCloud<pcl::PointXYZRGB>);
+			pcl::PointXYZRGB pp_filt;
 
 
-		
+		if (template_cloud_pca->points.size() > 0)
+		{
+
+				 std::vector<int> indices = featureObj.estimateCorrespondences(assumed_handle_cloud_pca,template_cloud_pca);
+
+											for (int i = 0; i < indices.size(); i++)
+												{		
+																pp_filt.x=assumed_handle_cloud_pca->points[i].x; 
+																pp_filt.y=assumed_handle_cloud_pca->points[i].y; 
+																pp_filt.z=assumed_handle_cloud_pca->points[i].z; 
+																pp_filt.r = 0;
+																pp_filt.g = 255;
+																pp_filt.b = 0;
+
+																pc_filt->push_back(pp_filt);
+
+												}
+
+									
+
+				icpInformation icp_data_nest_fit = featureObj.icpBasedTemplateAlignment(pc_filt,template_cloud_pca);
+
+				double fitness_score = icp_data_nest_fit.icp_fitness_score;
+				Eigen::Matrix4f icp_transformation_best_fit = icp_data_nest_fit.icp_transformation;
 
 
-
-
-
-															// curvature estimation
-
-															// Setup the principal curvatures computation
-															//pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-															//pcl::PrincipalCurvaturesEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PrincipalCurvatures> principalCurvaturesEstimation;
-
-															// Provide the original point cloud (without normals)
-															//principalCurvaturesEstimation.setInputCloud (template_transformed);
-
-															// Provide the point cloud with normals
-															//principalCurvaturesEstimation.setInputNormals(template_cloud_normals);
-
-															// Use the same KdTree from the normal estimation
-															//principalCurvaturesEstimation.setSearchMethod (tree);
-															//principalCurvaturesEstimation.setRadiusSearch(1.0);
-
-															// Actually compute the principal curvatures
-															//pcl::PointCloud<pcl::PrincipalCurvatures>::Ptr principalCurvatures (new pcl::PointCloud<pcl::PrincipalCurvatures> ());
-															//principalCurvaturesEstimation.compute (*principalCurvatures);
-															//principalCurvaturesEstimation.computePointPrincipalCurvatures(template_cloud_normals);
-
-														
-
-														
-															//std::cout<<"registered points : "<< cor_remaining_ptr->size() << " out of " << cor_all_ptr->size() << std::endl;
+				pcl::transformPointCloud (*template_cloud_pca,*template_cloud_pca, icp_transformation_best_fit);
 
 
 
-																						//*published_pc+= *assumed_handle_cloud_pca;
-			*published_pc+= *assumed_handle_cloud_pca; 
-			*published_pc+= *template_cloud_pca;
-			pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
-			point_cloud_out_msg_->header.frame_id = "camera_link";
-			pub_.publish(point_cloud_out_msg_);
+			// do final cylinder check
+			//calculate normals
+
+			 std::cout<<"Is Handle!"<< std::endl;
+			*published_pc+= *assumed_handle_cloud_pca;
+	
 
 
+		} // end if check
 
 	}
 
 
-
-
+			*published_pc+= *template_cloud_pca;
+			pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
+			point_cloud_out_msg_->header.frame_id = "camera_link";
+			pub_.publish(point_cloud_out_msg_);
 
 
 }

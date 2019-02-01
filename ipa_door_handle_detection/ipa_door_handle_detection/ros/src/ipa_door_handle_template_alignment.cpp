@@ -324,6 +324,52 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr FeatureCloudGeneration::downSamplePointCl
 
 
 
+std::vector<int> FeatureCloudGeneration::estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2)
+{
+
+    boost::shared_ptr<pcl::Correspondences> cor_all_ptr (new pcl::Correspondences),
+																									cor_remaining_ptr (new pcl::Correspondences),
+																									cor_remaining_ptr_nrm (new pcl::Correspondences);
+
+
+															// correspondence rejection for ICP
+															/// determine all corresp
+															pcl::registration::CorrespondenceEstimation<pcl::PointXYZRGB, pcl::PointXYZRGB> corEst;
+															corEst.setInputSource (input_point_cloud_1);
+															corEst.setInputTarget (input_point_cloud_2); 
+															corEst.determineCorrespondences (*cor_all_ptr);
+														
+															//Correspondence Rejection methods
+
+															// trimmed: use only k% best correspondances
+															boost::shared_ptr<pcl::Correspondences> corr_res_trimmed (new pcl::Correspondences);
+															pcl::registration::CorrespondenceRejectorTrimmed corr_rej_trimmed;
+															corr_rej_trimmed.setOverlapRatio(0.9);
+															corr_rej_trimmed.setInputCorrespondences(cor_all_ptr);
+															corr_rej_trimmed.getCorrespondences(*corr_res_trimmed);
+
+															// distance threshold: 
+															pcl::registration::CorrespondenceRejectorDistance rejector;
+															rejector.setInputCorrespondences (corr_res_trimmed);
+															rejector.setMaximumDistance (0.01);
+															//rejector.getCorrespondences (*cor_remaining_ptr);
+															rejector.getRemainingCorrespondences(*corr_res_trimmed,*cor_remaining_ptr); 
+
+
+															std::vector<int> indices;
+															pcl::ExtractIndices<pcl::PointXYZRGB> ex;
+
+															pcl::registration::getQueryIndices (*cor_remaining_ptr,indices);
+
+
+
+  return indices;
+
+
+}
+
+
+
 
 
 
