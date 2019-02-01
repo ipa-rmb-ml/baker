@@ -11,6 +11,7 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 	targetPathFeatures_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
 	targetPathPCA_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCAXYZRGB/";
 	targetPathEigen_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCATrafo/";
+	targetPathBB_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataBB/";
 
 	generateTemplatePCLFiles(file_path_to_point_clouds);
 }
@@ -95,117 +96,109 @@ std::vector <pcl::PointIndices> door_handle_cluster;
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >template_cluster_vec;
 
  DIR *pDIR;
-        struct dirent *entry;
-        if(pDIR=opendir(file_path_to_point_clouds.c_str()))
-		{
-                while(entry = readdir(pDIR)){
+ struct dirent *entry;
+    if(pDIR=opendir(file_path_to_point_clouds.c_str()))
+	{
+        while(entry = readdir(pDIR)){
 
-                        if( strcmp(entry->d_name,file_path_to_point_clouds.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, ".") != 0  )				
+          if( strcmp(entry->d_name,file_path_to_point_clouds.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, ".") != 0  )				
+			{
+			std::string filePathPCDRead = file_path_to_point_clouds + entry->d_name;
+			std::string filePathPCDWriteXYZRGB = targetPathXYZRGB_ + entry->d_name;
+			std::string filePathPCDWriteNormals = targetPathNormals_ + entry->d_name;
+			std::string filePathPCDWriteFeatures = targetPathFeatures_ + entry->d_name;
+			std::string filePathPCDWritePCAXYZ = targetPathPCA_ + entry->d_name;
+
+			boost::filesystem::path p(filePathPCDRead);
+			std::string templateName = p.stem().c_str(); // get filename without extension
+
+			std::string filePathTXTWriteEigen = targetPathEigen_ + templateName + ".txt";
+			std::string filePathTXTWriteBB = targetPathBB_ + templateName + ".txt";
+
+				if (pcl::io::loadPCDFile<pcl::PointXYZ> (filePathPCDRead, *template_cloud) == -1) //* load the file
+					{
+						PCL_ERROR ("Couldn't read PCD file. \n");
+					}
+			planeInformation planeData = seg.detectPlaneInPointCloud(template_cloud);
+
+			// change color of template cloud
+
+			pcl::ModelCoefficients::Ptr plane_coeff = planeData.plane_coeff;
+			pcl::PointIndices::Ptr plane_pc_indices = planeData.plane_point_cloud_indices;
+
+			template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc_indices,plane_coeff);
+			template_cloud_reduced_rgb = seg.changePointCloudColor(template_cloud_reduced);
+
+				if (template_cloud_reduced->size() > 0)
+					{
+					door_handle_cluster=seg.findClustersByRegionGrowing(template_cloud_reduced_rgb);
+					// only one object suppose to be the handle
+					if (door_handle_cluster.size()== 1)
 						{
+						template_cluster_vec= generateTemplateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
+						// calculate xyzrgb point cloud
+						*template_cloud_reduced = *template_cluster_vec[0];
+						template_cloud_reduced->width = 1;
+						template_cloud_reduced->height = template_cloud_reduced->points.size();
 
-					
+						// downsample point cloud for better performance 
+						template_cloud_reduced=featureObj.downSamplePointCloud(template_cloud_reduced);
+											
+						// calculate normals based on template_cloud_reduced
+						template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
+											
+						//calculate features based on template_cloud_reduced
+						template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
 
-							std::string filePathPCDRead = file_path_to_point_clouds + entry->d_name;
-							std::string filePathPCDWriteXYZRGB = targetPathXYZRGB_ + entry->d_name;
-							std::string filePathPCDWriteNormals = targetPathNormals_ + entry->d_name;
-							std::string filePathPCDWriteFeatures = targetPathFeatures_ + entry->d_name;
-							std::string filePathPCDWritePCAXYZ = targetPathPCA_ + entry->d_name;
+						pcaInformation pcaData  = seg.calculatePCA(template_cloud_reduced);
+						Eigen::Matrix4f transform_pca = pcaData.pca_transformation;
+						Eigen::Vector3f bb_3D = pcaData.bounding_box_3D;
 
-		
-							boost::filesystem::path p(filePathPCDRead);
-							std::string templateName = p.stem().c_str(); // get filename without extension
+						pcl::transformPointCloud(*template_cloud_reduced, *template_cloud_pca, transform_pca);
+											
+						std::cout << "Writing XYZ..." << std::endl;
+						pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB,*template_cloud_reduced);
 
-							std::string filePathTXTWriteEigen = targetPathEigen_ + templateName + ".txt";
+						std::cout << "Writing Normals..." << std::endl;
+						pcl::io::savePCDFileASCII (filePathPCDWriteNormals,*template_cloud_normals);
 
-							if (pcl::io::loadPCDFile<pcl::PointXYZ> (filePathPCDRead, *template_cloud) == -1) //* load the file
+						std::cout << "Writing PCA Data..." << std::endl;
+						pcl::io::savePCDFileASCII (filePathPCDWritePCAXYZ,*template_cloud_pca);
+
+						std::cout << "Writing Features..." << std::endl;	
+						pcl::io::savePCDFileASCII (filePathPCDWriteFeatures,*template_cloud_features);
+
+						std::cout << "Writing PCA Transformation..." << std::endl;	
+						std::ofstream fout_pca;
+						fout_pca.open(filePathTXTWriteEigen.c_str());
+						fout_pca <<	"\n";
+							for (int r = 0; r < transform_pca.rows(); r++)
+								{
+								for (int c = 0; c <transform_pca.cols();c++)
 									{
-										PCL_ERROR ("Couldn't read PCD file. \n");
-										
+									fout_pca <<transform_pca(r,c) << "\n";
 									}
+							}
 
-							planeInformation planeData = seg.detectPlaneInPointCloud(template_cloud);
+						std::cout << "Writing PCA BB Information..." << std::endl;	
+						std::ofstream fout_BB;
+						fout_BB.open(filePathTXTWriteBB.c_str());
+						fout_BB <<	"\n";
+							for (int r = 0; r < bb_3D.size(); r++)
+								{
+								fout_BB <<bb_3D(r) << "\n";
+								}					
+					}
 
-							// change color of template cloud
-
-							pcl::ModelCoefficients::Ptr plane_coeff = planeData.plane_coeff;
-							pcl::PointIndices::Ptr plane_pc_indices = planeData.plane_point_cloud_indices;
-
-
-							template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc_indices,plane_coeff);
-
-							template_cloud_reduced_rgb = seg.changePointCloudColor(template_cloud_reduced);
-
-
-								if (template_cloud_reduced->size() > 0)
-									{
-										door_handle_cluster=seg.findClustersByRegionGrowing(template_cloud_reduced_rgb);
-										// only one object suppose to be the handle
-										if (door_handle_cluster.size()== 1)
-										{
-											
-											template_cluster_vec= generateTemplateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
-											// calculate xyzrgb point cloud
-											*template_cloud_reduced = *template_cluster_vec[0];
-											template_cloud_reduced->width = 1;
-											template_cloud_reduced->height = template_cloud_reduced->points.size();
-
-
-											// downsample point cloud for better performance 
-											template_cloud_reduced=featureObj.downSamplePointCloud(template_cloud_reduced);
-											
-											// calculate normals based on template_cloud_reduced
-											template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
-											
-											//calculate features based on template_cloud_reduced
-											template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
-
-											Eigen::Matrix4f transform_pca = seg.calculatePCA(template_cloud_reduced);
-
-											pcl::transformPointCloud(*template_cloud_reduced, *template_cloud_pca, transform_pca);
-											
-
-											std::cout << "Writing XYZ..." << std::endl;
-											pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB,*template_cloud_reduced);
-
-
-											std::cout << "Writing Normals..." << std::endl;
-											pcl::io::savePCDFileASCII (filePathPCDWriteNormals,*template_cloud_normals);
-
-
-											std::cout << "Writing PCA Data..." << std::endl;
-											pcl::io::savePCDFileASCII (filePathPCDWritePCAXYZ,*template_cloud_pca);
-
-
-											std::cout << "Writing Features..." << std::endl;	
-											pcl::io::savePCDFileASCII (filePathPCDWriteFeatures,*template_cloud_features);
-
-
-											std::cout << "Writing PCA Transformation..." << std::endl;	
-											std::ofstream fout;
-											fout.open(filePathTXTWriteEigen.c_str());
-
-											fout <<	"\n";
-											for (int r = 0; r < transform_pca.rows(); r++)
-											{
-												for (int c = 0; c <transform_pca.cols();c++)
-												{
-													fout <<transform_pca(r,c) << "\n";
-												}
-											}
-												
-										}
-
-									}
-									else
-									{
-												std::cout << "Not sufficient points for normal estimation." << std::endl;
-									}
-						}
-                }
-                closedir(pDIR);
-        }
-
-
+				}
+			else
+				{
+				std::cout << "Not sufficient points for normal estimation." << std::endl;
+				}
+			}
+        } //end while
+        closedir(pDIR);
+    } //end if
 }
 
 
