@@ -97,12 +97,11 @@ target_link_libraries(ipa_door_handle_detection
 
 
 
-# door handle detection main
+# template geneation
 add_executable(ipa_template_generation
     ros/src/ipa_template_generation.cpp
     ros/src/ipa_door_handle_segmentation.cpp
     ros/src/ipa_door_handle_template_alignment.cpp
-
 )
 
 add_dependencies(ipa_template_generation
@@ -110,6 +109,21 @@ add_dependencies(ipa_template_generation
         ${catkin_EXPORTED_TARGETS}
 )
 target_link_libraries(ipa_template_generation
+        ${catkin_LIBRARIES}
+        ${PCL_LIBRARIES}
+)
+
+# database generation
+add_executable(ipa_database_generation
+    ros/src/ipa_database_generation.cpp
+    ros/src/ipa_door_handle_segmentation.cpp
+)
+
+add_dependencies(ipa_database_generation
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries(ipa_database_generation
         ${catkin_LIBRARIES}
         ${PCL_LIBRARIES}
 )
