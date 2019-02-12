@@ -133,14 +133,18 @@ std::vector<Eigen::Matrix4f> FeatureCloudGeneration::loadGeneratedPCATransformat
                 int cols = 0;
                 int counter = 0;
 
-              std::string line;
-            // read out lines
-              while (std::getline(indata, line, '\n')){
+            while(!indata.eof())
+            {
+              std::string line = "";
+              std::getline(indata,line);
 
-                  indata >> mat_element;  
-                  mat_element_vec.push_back(mat_element);
+              if (!line.empty())
+              {
+                mat_element_vec.push_back(std::atof(line.c_str()));
               }
-             // fill trafo_pca matrix with data from the txt file
+						} // end if
+
+            // fill trafo_pca matrix with data from the txt file
               for (int row = 0; row < 4; row++)
               {
                 for (int col = 0; col < 4; col ++)
@@ -181,45 +185,36 @@ std::vector<Eigen::Vector3f> FeatureCloudGeneration::loadGeneratedBBInformation(
 
                 std::ifstream indata;
                 indata.open(txtFile.c_str());
+                std::string line;
 
                 std::vector <double> mat_element_vec;
-        
+                double mat_element;
+                Eigen::Vector3f vec(3);
 
-              std::string line;
             // read out lines
+           
 
+            while(!indata.eof())
+            {
 
+              std::string line = "";
+              std::getline(indata,line);
 
-              while (std::getline(indata, line, '/t'))
+              if (!line.empty())
               {
-                  
-               double mat_element;
-          
-                      indata >> mat_element;  
-
-                      std::cout<<mat_element<<std::endl;
-                      //mat_element_vec.push_back(mat_element);
-
-                        
-                    
-    
-                 
+                mat_element_vec.push_back(std::atof(line.c_str()));
               }
-                    
-
-              
-                // push traf_pca data into final vector
-
-              for (int num_el = 0; num_el < mat_element_vec.size(); num_el++)
-              {
-                  BB_3D << mat_element_vec.at(num_el);
-              } 
-
-               // push back to the relvant vec
-               BB_3D_vec.push_back(BB_3D);
 						} // end if
 
+            for (int i = 0; i < mat_element_vec.size(); i++)
+            {
+                vec(i) =   mat_element_vec.at(i);
 
+            }
+
+            BB_3D_vec.push_back(vec);
+
+          }
        }// end while
        closedir(pDIR);
     }
@@ -357,7 +352,7 @@ return input_point_cloud;
 
 
 
-std::vector<int> FeatureCloudGeneration::estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2)
+std::vector<int> FeatureCloudGeneration::estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2, double max_dist,double overlap_ratio)
 {
     boost::shared_ptr<pcl::Correspondences> cor_all_ptr (new pcl::Correspondences),
 																						cor_remaining_ptr (new pcl::Correspondences),
@@ -373,14 +368,14 @@ std::vector<int> FeatureCloudGeneration::estimateCorrespondences(pcl::PointCloud
 		// trimmed: use only k% best correspondances
 		boost::shared_ptr<pcl::Correspondences> corr_res_trimmed (new pcl::Correspondences);
 		pcl::registration::CorrespondenceRejectorTrimmed corr_rej_trimmed;
-		corr_rej_trimmed.setOverlapRatio(0.9);
+		corr_rej_trimmed.setOverlapRatio(overlap_ratio);
 		corr_rej_trimmed.setInputCorrespondences(cor_all_ptr);
 		corr_rej_trimmed.getCorrespondences(*corr_res_trimmed);
 
 		// distance threshold: 
 		pcl::registration::CorrespondenceRejectorDistance rejector;
 		rejector.setInputCorrespondences (corr_res_trimmed);
-		rejector.setMaximumDistance (0.01);
+		rejector.setMaximumDistance (max_dist);
 		rejector.getRemainingCorrespondences(*corr_res_trimmed,*cor_remaining_ptr); 
 
 		std::vector<int> indices;

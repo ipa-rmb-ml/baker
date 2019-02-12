@@ -405,9 +405,14 @@ pcaInformation PointCloudSegmentation::calculatePCA(pcl::PointCloud<pcl::PointXY
 	double rect_height =  (maxPoint.y-minPoint.y)*100;
 	double rect_depth = (maxPoint.z-minPoint.z)*100;
 
+	Eigen::Vector3f bbParams;
+
+	bbParams << rect_width, rect_height, rect_depth;
+
+
 	pcaInformation pcaData;
 	pcaData.pca_transformation = pca_trafo;
- 	pcaData.bounding_box_3D = bboxTransform;
+ 	pcaData.bounding_box_3D = bbParams;
 
 	return pcaData;
 

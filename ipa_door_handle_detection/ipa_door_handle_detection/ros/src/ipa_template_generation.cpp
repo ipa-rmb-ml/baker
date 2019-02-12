@@ -30,10 +30,7 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 
 	int min = 0;
 	int max = 150;
-
-
-
-
+	
 	// avoid crashing
 	if(clusters.size() > 0)
 	{
@@ -58,11 +55,8 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 					clusteredPP.g = 0;
 					clusteredPP.b = 0;
 
-
 					// adding single points to point cloud cluster, these are the object point lying outsidee the plane 
 					cluster_pc->points.push_back(clusteredPP);
-
-
 				} 
 
 				clusterVec_pc.push_back(cluster_pc);
