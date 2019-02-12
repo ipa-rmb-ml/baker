@@ -33,38 +33,43 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/segmentation/region_growing.h>
+#include <pcl/registration/icp.h>
 
+#include <pcl/registration/icp_nl.h>
 #include <boost/thread/mutex.hpp>
 
+#include<stdio.h>
+#include<cstdlib>
+#include<string.h>
+#include<fstream>
+#include<dirent.h>
+#include <bits/stdc++.h> 
 
-#define TOPIC_POINT_CLOUD_IN "/camera/depth/points"
-#define TOPIC_POINT_CLOUD_OUT "/point_cloud_output"
+#define TOPIC_POINT_CLOUD "/camera/depth/points"  
+#define TOPIC_POINT_CLOUD_PATCH "/selected_patch"  
 
-// creates vector with pointclouds where each represents a cluster idintified by region growing
-class StartHandleDetection
+
+
+class DoorhandleDatabaseGeneration
 {
 public:
 
-	StartHandleDetection(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
+    DoorhandleDatabaseGeneration(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
 
 	void initCameraNode(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
 
-	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);	
+	void pointcloudCallback_1(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);	
+
+	void pointcloudCallback_2(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
+
+
 
 private:
 	ros::Publisher pub_;
 	ros::NodeHandle nh_;
 	sensor_msgs::PointCloud2::Ptr point_cloud_out_msg_;
 	ros::Subscriber point_cloud_sub_;
-	
-	double max_dist_1_;
-	double max_dist_2_;
-	double overlap_ratio_;
+	Eigen::Vector3f setup_;
 
-	std::string filePathXYZRGB_;
-	std::string filePathNormals_;
-	std::string filePathFeatures_;
-	std::string filePathPCATransformations_;
-	std::string filePathBBInformations_;
+
 };
-
