@@ -15,7 +15,7 @@ alignment_thres_ = 1e-4;
  similarity_thres_ = 0.9f;
 
  rad_search_dist_ = 0.03;
- voxel_grid_size_ = 0.005f;
+ voxel_grid_size_ = 0.001f;
 }
 
 
@@ -386,9 +386,68 @@ std::vector<int> FeatureCloudGeneration::estimateCorrespondences(pcl::PointCloud
 }
 
 
+std::string FeatureCloudGeneration::getFilePathFromParameter(int dist, int angle_XZ, int angle_YZ)
+{
 
+		int distances[] = {45-dist,55-dist,70-dist,90-dist};
 
+		int angle_xz[] = {-60-angle_XZ,-40-angle_XZ,-20-angle_XZ,0-angle_XZ,20-angle_XZ,40-angle_XZ,60-angle_XZ}; //deg
 
+		int angle_yz[] = {0-angle_YZ,5-angle_YZ}; // deg
+
+		// setup vec contain this info: angle_xz, angle_yz, distance to door plane
+
+	//distance loop
+ 		int index_d = 0 ;
+		int n_d = abs(distances[0]);
+		for (int i = 1; i < 4; i++)
+		{
+			if (distances[i] < n_d)
+			{
+				n_d = abs(distances[i]); 
+				index_d = i ;
+			}
+ 		}
+		int final_distance = distances[index_d]+dist;
+
+		int index_a1 = 0 ;
+		int n_a1 = abs(angle_xz[0]);
+		for (int i = 1; i < 7; i++)
+		{
+			if (angle_xz[i] < n_a1)
+			{
+				n_a1 = abs(angle_xz[i]); 
+				index_a1 = i ;
+			}
+ 		}
+		int final_angleXZ = angle_xz[index_a1]+angle_XZ;
+
+		int index_a2 = 0 ;
+		int n_a2 = abs(angle_yz[0]);
+		for (int i = 1; i < 2; i++)
+		{
+			if (angle_yz[i] < n_a2)
+			{
+				n_a2 = abs(angle_yz[i]); 
+				index_a2 = i ;
+			}
+ 		}
+		int final_angleYZ = angle_yz[index_a2]+angle_YZ;
+
+		std::stringstream str1, str2, str3;
+
+		str1 << final_angleXZ;
+		str2 << final_angleYZ;
+		str3 << final_distance;
+
+		std::string angle_1_str = str1.str();
+		std::string angle_2_str = str2.str();
+		std::string dist_str = str3.str();
+
+		std::string name_pcd  = "_distance_" + dist_str + "cm_" + "angleXZ_" + angle_1_str + "°_" + "angleYZ_"+ angle_2_str + "°.pcd";
+
+		return name_pcd;
+}
 
 
 

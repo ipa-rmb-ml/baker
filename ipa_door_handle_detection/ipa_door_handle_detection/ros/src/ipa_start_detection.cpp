@@ -19,6 +19,8 @@ nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 	max_dist_2_ = 0.005; // refinement after best template
 	overlap_ratio_ =0.9; // overlp ration of template and cluster during corresp matching
 
+	diag_BB3D_lim_ = 15;
+
 	initCameraNode(nh,point_cloud_out_msg);	
 }
 
@@ -68,6 +70,8 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 
 	// ==================================================ITERATION OVER CLUSTERS ===============================================
 
+	if (cluster_vec.size () > 0)
+	{
 		for (int num_cluster = 0; num_cluster < cluster_vec.size (); ++num_cluster) // 
 		{
 			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster = cluster_vec[num_cluster];		
@@ -81,28 +85,77 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			
 			double BB_Diag_3D =  sqrt(bb_3D_cluster(0) * bb_3D_cluster(0) + bb_3D_cluster (1) * bb_3D_cluster (1) + bb_3D_cluster (2)* bb_3D_cluster (2));
 
-			std::cout<<BB_Diag_3D<<std::endl;
+			// ORIENTATION CHECK
+			// check if the axis with largest variance is orthogonal to the plane
+			bool isParallel = segObj.checkBB3DOrientation(cluster_pca_trafo,plane_coefficients);
+			// if parallel proceed with given cluster 
+			// else continue
+			if (!isParallel)
+			{
+				continue;
+			}
 
-			// if diagonal to small to large:continue
-			// else : decide in which subdirectory to go 
+			// DIAGONAL CHECK
+			if (BB_Diag_3D > diag_BB3D_lim_)
+			{	
+				continue;
+			}
+
+			// depending on bounding box diagonal and plane distance and camera plane angle
 
 			// apply transformation on assumed handle cloud
 			pcl::transformPointCloud (*cluster, *cluster_pca, cluster_pca_trafo);
 
-			// check for cylinder ===================================================
-			cluster_pca_normals =  featureObj.calculateSurfaceNormals(cluster_pca);
-			bool isCylinder = segObj.alignCylinderToPointCloud(cluster_pca,cluster_pca_normals,plane_coefficients);
-					
-				if (!isCylinder)
-				{
-					continue;
-				}
+			// depending on the BB size decide in which directory 
+			Eigen::Vector3f cam_axis;
+			cam_axis << 0,0,1;
+
+			double scalar_prod_xz = plane_coefficients->values[0];
+			double scalar_prod_yz = plane_coefficients->values[1];
+	
+			double len_xz = pow(plane_coefficients->values[0],2) + pow(plane_coefficients->values[2],2);
+			double len_yz = pow(plane_coefficients->values[1],2) + pow(plane_coefficients->values[2],2); 
+
+			// get geometrical lenght
+			double cos_alpha_1 = scalar_prod_xz/sqrt(len_xz);
+			double cos_alpha_2 = scalar_prod_yz/sqrt(len_yz);
+
+			int angle_XZ = 90-acos(cos_alpha_1)*180.0/M_PI;
+			int angle_YZ = asin(cos_alpha_2)*180.0/M_PI;
+
+			int dist = -plane_coefficients->values[3]*100; // to cm
+
+			std::cout<<"angle_xz: " << angle_XZ << "°"<< std::endl;
+			std::cout<<"angle_yz: " <<angle_YZ << "°" <<std::endl;
+			std::cout<<"distance: " << dist << "cm" <<std::endl;
+			std::cout<<"diag: " << BB_Diag_3D << "cm "<< std::endl;
+
+
+			// name appendix _distance_70cm_angleXZ_0°_angleYZ_0°.pcd
+			// iterate over templates (model types)
+			// full name doorhandle_MODELTYPE_distance_DIST_angleXZ_ANGLEXZ_angleYZ_ANGLEYZ.pcd
+
+			std::string name_pcd = FeatureCloudGeneration::getFilePathFromParameter(dist,angle_XZ,angle_YZ);
+
+		
+			// go into the corresponding directory
+			// MODEL001 | MODEL002 | MODEL003 | 
+			// check BB3D from PCA and decide ->iterate over templates or not?
+
+			// for each possible model --> store vector with infotmation (translation err, fitness_score, ratio) -> select best fit
+
+
+
+
+
+
+
+
+
 
 			// ====================CHANGE TO PCAs BOUNDING BOX CRIT ==================================
 
-			cluster_pca_best_vec.push_back(cluster_pca);
-			// determine size of the BB here to define in which template subfolder to go
-				// double size ....
+			cluster_pca_best_vec.push_back(cluster_pca); // so
 
 			std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
 			Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > template_vec_xyz = featureObj.loadGeneratedTemplatePCLXYZ(filePathXYZRGB_);
@@ -118,6 +171,8 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			std::vector<Eigen::Vector3f> template_BB_3D = featureObj.loadGeneratedBBInformation(filePathBBInformations_);
 
 
+			// ===================== CLASSIFICATION ==========================
+
 			// ================================== ITERATION OVER TEMPLATES =============================================================
 
 			for (int num_template = 0; num_template < template_vec_xyz.size(); ++num_template) // template loop
@@ -132,13 +187,11 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 							Eigen::Vector3f BB_3D = template_BB_3D[num_template];
 
 							double BB_mean =  sqrt(BB_3D(0) * BB_3D(0) + BB_3D (1) * BB_3D (1) + BB_3D (2)* BB_3D (2));
-							std::cout<<"template_diag " << BB_mean<<std::endl;
 
 							// Eigen::Matrix4f pca_assumed -> rotation and tranlation to origin
 							// find rot btw PCA's coordinates systems
 							//  template * R = assumed
 							// R = assumed * template^T;
-
 
 							Eigen::Matrix4f transform_hndl;
 							transform_hndl.setIdentity();
@@ -171,13 +224,28 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 									points_ratio_min = points_ratio;
 									template_pca_best = template_pca;
 								}
+								else
+								{
+								 ROS_WARN("No Handle Detected");
+								}
 						}	//end if cluster size > 0
 				} // end for
+
+			// ================================================= ITERATION OVER TEMPLATES ===============================================	
 
 			sum_squared_err_vec.push_back(sum_squared_err_min);
 			template_pca_best_vec.push_back(template_pca_best);
 		} // end for assumed handle cloud
 		// find best cluster template match
+
+	}// endif
+	else
+	{
+		ROS_WARN("No Handle Detected");
+	}
+	
+
+		// ================================== FIND BEST TEMPLATE =================================================================
 
 	if (!sum_squared_err_vec.empty())
 	{
@@ -222,12 +290,13 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 			pcl::transformPointCloud (*template_pca,*template_pca, icp_transformation_best_fit);
 
 			// B  Distance --> paper
+			ROS_WARN("HANDLE DETECTED");
 
-			std::cout<<"Is Handle!"<< std::endl;
-
-			
 			*published_pc+= *cluster_pca;
+
+
 		} // end if check
+		// ===============================================FIND BEST TEMPLATE ===================================================
 
 	}
 			*published_pc+= *template_pca;

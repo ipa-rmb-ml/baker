@@ -1,13 +1,14 @@
 
 #include "ipa_door_handle_segmentation.h"
+#include "ipa_door_handle_template_alignment.h"
 
 
 PointCloudSegmentation::PointCloudSegmentation()
 {
 
 // filter points by distance
-min_point_to_plane_dist_ = 0.05;
-max_point_to_plane_dist_ = 0.2;
+min_point_to_plane_dist_ = 0.03;//m
+max_point_to_plane_dist_ = 0.1;
 
 // filter points by door handle height
 // height of door handle: due to DIN 85 cm to 105 cm
@@ -27,12 +28,14 @@ inlier_ratio_thres_ = 0.9;
 distance_thres_ = 0.01;
 max_num_iter_ = 1000;
 
-min_cluster_size_ = 500;
-max_cluster_size_ = 1000000;
+min_cluster_size_ = 3000;
+max_cluster_size_ = 10000;
 
 // angle between cyliders axis and door planes normals
 // maximal difference for both to be orthogonal 
 max_diff_norm_axis_ = 7;
+
+angle_thres_x_ = 10.0;
 
 }
 
@@ -44,7 +47,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 {
 	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
 	Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >clusters_vec_pc;
-
+	
 	// PLANE DETECTION 
 	planeInformation planeData = detectPlaneInPointCloud(input_cloud);
 
@@ -56,6 +59,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 	// plane coeff: coeffs of the detected plane
 
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc=minimizePointCloudToObject(input_cloud,plane_pc_indices,plane_coeff);
+
 	std::vector <pcl::PointIndices> clusters = findClustersByRegionGrowing(reduced_pc);
     clusters_vec_pc = generateAlignmentObject(clusters,reduced_pc,plane_coeff);
 
@@ -133,6 +137,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 
 			// storing and coloring data from only outside the plane
 		double point2plane_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
+
 		// add DIN information to ppoint handle
 		// robots distance 
 		if ( pp_PC.z < max_door_robot_)
@@ -141,7 +146,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 			{
 						pp_PC.r = 0;																								
 						pp_PC.b = 255;
-						pp_PC.g =0;								
+						pp_PC.g =0;							
 						reduced_pc->points.push_back(pp_PC);				
 				}
 		}
@@ -178,10 +183,9 @@ std::vector <pcl::PointIndices> PointCloudSegmentation::findClustersByRegionGrow
   // sets angle that will be used as the allowable range for the normals deviation
   reg.setSmoothnessThreshold (3.0 / 180.0 * M_PI);
   // curvature threshold if two points have a small normals deviation then the disparity btw their curvatures is tested
-  reg.setCurvatureThreshold (1.0);
+  reg.setCurvatureThreshold (0.5);
   std::vector <pcl::PointIndices> clusters;
   reg.extract (clusters);
-
  // put into new function --> visualizing/counting clusters 
 
   return clusters;
@@ -298,7 +302,7 @@ double num_point_cloud = input_point_cloud->points.size();
 		double ratio_thres = 0.8;
 		double angle_tolerance = 10;
 
-		double angle_cylinder_plane = checkOrientationAndGeometryOfCylinder(coefficients_cylinder,plane_coefficients);
+		double angle_cylinder_plane = checkOrientationAndGeometry(coefficients_cylinder,plane_coefficients);
 
 		if ((radius > cylinder_rad_min_) && (radius < cylinder_rad_max_) && (ratio >ratio_thres) && (abs(angle_cylinder_plane-90.0) < angle_tolerance))
 		{
@@ -319,7 +323,7 @@ double num_point_cloud = input_point_cloud->points.size();
 	} //end if
 }
 
-double  PointCloudSegmentation::checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)
+double  PointCloudSegmentation::checkOrientationAndGeometry(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_coeff)
 {
 
 	int offset = 3;
@@ -383,6 +387,7 @@ pcaInformation PointCloudSegmentation::calculatePCA(pcl::PointCloud<pcl::PointXY
 	// The minimum point, maximum point, and the middle of the diagonal between these two points are calculated for the transformed cloud (also referred to as the projected cloud when using PCL's PCA interface, or reference cloud by Nicola).
 	// Transform the original cloud to the origin where the principal components correspond to the axes.
 	Eigen::Matrix4f pca_trafo(Eigen::Matrix4f::Identity());
+
 	pca_trafo.block<3,1>(0,0) = eigenVectorPCA_x;
 	pca_trafo.block<3,1>(0,1) = eigenVectorPCA_y;
 	pca_trafo.block<3,1>(0,2) = eigenVectorPCA_z;
@@ -390,7 +395,7 @@ pcaInformation PointCloudSegmentation::calculatePCA(pcl::PointCloud<pcl::PointXY
 	pca_trafo.block<3,1>(0,3) = -1.f * (pca_trafo.block<3,3>(0,0) * pcaCentroid.head<3>());
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_pca (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-	pcl::transformPointCloud(*point_cloud, *point_cloud_pca, pca_trafo);
+	pcl::transformPointCloud(*point_cloud, *point_cloud_pca, pca_trafo.transpose());
 
 	// Get the minimum and maximum points of the transformed cloud.
 	pcl::PointXYZRGB minPoint, maxPoint;
@@ -415,5 +420,41 @@ pcaInformation PointCloudSegmentation::calculatePCA(pcl::PointCloud<pcl::PointXY
  	pcaData.bounding_box_3D = bbParams;
 
 	return pcaData;
+
+  }
+
+
+  bool PointCloudSegmentation::checkBB3DOrientation(Eigen::Matrix4f PCA_trafo,pcl::ModelCoefficients::Ptr plane_coefficients)
+  {
+	// check orientation of the bounding box -> x axis largest variance
+			Eigen::Vector3f PCA_x = PCA_trafo.block<3,1>(0,0);
+			Eigen::Vector3f PCA_y = PCA_trafo.block<3,1>(0,1);
+		 
+			double len_1 = 0;
+			double len_2 = 0;
+			double scalar_prod = 0;  
+
+			for (int i =0; i < 3; ++i)
+			{
+				scalar_prod +=  PCA_x(i) *plane_coefficients->values[i];
+				len_1 += pow(PCA_x(i),2);
+				len_2 += pow(plane_coefficients->values[i],2);
+			}
+		
+			// get geometrical lenght
+		 	double cos_alpha = scalar_prod/(sqrt(len_1)*sqrt(len_2));
+			double angle = acos(cos_alpha)*180.0/M_PI - 90;
+
+	if (abs(angle) < angle_thres_x_)
+	{
+		return true;
+	}
+	else
+	{
+	//	std::cout<<"Wrong orientation. Cluster main axis is not parallel to door plane"<<std::endl;
+		return false;
+	}
+
+
 
   }

@@ -2,6 +2,8 @@
 #include "ipa_database_generation.h"
 #include "ipa_door_handle_segmentation.h"
 
+
+
 #include <stdio.h>
 #include <sys/select.h>
 #include <termios.h>
@@ -14,19 +16,10 @@ nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 }
 
 
-void DoorhandleDatabaseGeneration::pointcloudCallback_2(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg)
+std::string DoorhandleDatabaseGeneration::getFilePathFromParameter(int dist, int angle_XZ, int angle_YZ)
 {
-	pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::fromROSMsg(*point_cloud_msg, *point_cloud);
 
-	if (point_cloud->points.size() > 0)
-	{
-
-		int dist	 = setup_(2);
-		int angle_XZ = setup_(0);
-		int angle_YZ = setup_(1);
-
-		int distances[] = {35-dist,50-dist,70-dist,90-dist};
+		int distances[] = {45-dist,55-dist,70-dist,90-dist};
 
 		int angle_xz[] = {-60-angle_XZ,-40-angle_XZ,-20-angle_XZ,0-angle_XZ,20-angle_XZ,40-angle_XZ,60-angle_XZ}; //deg
 
@@ -81,6 +74,25 @@ void DoorhandleDatabaseGeneration::pointcloudCallback_2(const sensor_msgs::Point
 		std::string angle_2_str = str2.str();
 		std::string dist_str = str3.str();
 
+		std::string name_pcd  = "_distance_" + dist_str + "cm_" + "angleXZ_" + angle_1_str + "°_" + "angleYZ_"+ angle_2_str + "°.pcd";
+
+		return name_pcd;
+}
+
+void DoorhandleDatabaseGeneration::pointcloudCallback_2(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg)
+{
+	pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::fromROSMsg(*point_cloud_msg, *point_cloud);
+
+	if (point_cloud->points.size() > 0)
+	{
+
+		int dist	 = setup_(2);
+		int angle_XZ = setup_(0);
+		int angle_YZ = setup_(1);
+
+		std::string filename_append =getFilePathFromParameter(dist,angle_XZ,angle_YZ);
+
 		std::string myString = "";
 		std::string model_type = "";
 		std::string save_bool = "";
@@ -97,7 +109,8 @@ void DoorhandleDatabaseGeneration::pointcloudCallback_2(const sensor_msgs::Point
 			}
 		} 
 
-		std::string name_pcd  = "door_handle_type_" + model_type + "_distance_" + dist_str + "cm_" + "angleXZ_" + angle_1_str + "°_" + "angleYZ_"+ angle_2_str + "°.pcd";
+		std::string name_pcd  = "door_handle_type_" + model_type + filename_append;
+		std::string path_type = PATH_TO_DIR + model_type + "/" + name_pcd ;
 		std::cout<<name_pcd<<std::endl;
 
 		while(true)
@@ -109,12 +122,25 @@ void DoorhandleDatabaseGeneration::pointcloudCallback_2(const sensor_msgs::Point
 			{
 				save_bool = myString;
 
-				if (save_bool.compare("y") != 0)
+				if (save_bool.compare("y") == 0)
 				{
-					// save to file
-					ROS_WARN("Writing point cloud to pcd file...");
+					// check if directory exists,
+
+						boost::filesystem::path p(PATH_TO_DIR + model_type);  // avoid repeated path construction below
+
+						if (!exists(p))    // does path p actually exist?
+						{
+							ROS_WARN("Creating Directory...");
+							boost::filesystem::create_directory(p);	
+							// store png 
+						}
+							ROS_WARN("Writing point cloud to pcd file...");
+							//std::cout<<path_type<<std::endl;
+							pcl::io::savePCDFileASCII (path_type,*point_cloud);	
+
 					break;
 				}
+
 				else
 				{
 					ROS_WARN("Cancelling selection...");
@@ -167,11 +193,9 @@ void DoorhandleDatabaseGeneration::pointcloudCallback_1(const sensor_msgs::Point
 
 		 double scalar_prod_xz = plane_coeff->values[0];
 		 double scalar_prod_yz = plane_coeff->values[1];
-
-		 		 
+ 
 		 double len_xz = pow(plane_coeff->values[0],2) + pow(plane_coeff->values[2],2);
-		 double len_yz = pow(plane_coeff->values[1],2) + pow(plane_coeff->values[2],2);
-	
+		 double len_yz = pow(plane_coeff->values[1],2) + pow(plane_coeff->values[2],2); 
 
 		// get geometrical lenght
 		double cos_alpha_1 = scalar_prod_xz/sqrt(len_xz);
@@ -182,9 +206,21 @@ void DoorhandleDatabaseGeneration::pointcloudCallback_1(const sensor_msgs::Point
 
 		int dist = -plane_coeff->values[3]*100; // to cm
 
-		std::cout<<"angle_xz: "<<angle_1<< "°" << std::endl;
-		std::cout<<"angle_yz: "<<angle_2<< "°" << std::endl;
-		std::cout<<"distance: "<< dist << "cm" << std::endl;
+		if ((abs(dist) > 100) || (abs(angle_1) > 180) || (abs(angle_2) > 180)) 
+		{
+			std::cout<<"angle_xz: " << std::endl;
+			std::cout<<"angle_yz: " << std::endl;
+			std::cout<<"distance: " << std::endl;
+		}
+
+		else
+		{
+			std::cout<<"angle_xz: "<<angle_1<< "°" << std::endl;
+			std::cout<<"angle_yz: "<<angle_2<< "°" << std::endl;
+			std::cout<<"distance: "<< dist << "cm" << std::endl;
+
+
+		}
 
 		setup_ << angle_1,angle_2,dist;  
 	}
@@ -201,9 +237,8 @@ void DoorhandleDatabaseGeneration::initCameraNode(ros::NodeHandle nh, sensor_msg
 	ros::Subscriber point_cloud_sub_1_ = nh_.subscribe<sensor_msgs::PointCloud2>(TOPIC_POINT_CLOUD, 1, &DoorhandleDatabaseGeneration::pointcloudCallback_1, this);
 
 	ros::Subscriber point_cloud_sub_2_ = nh_.subscribe<sensor_msgs::PointCloud2>(TOPIC_POINT_CLOUD_PATCH, 1, &DoorhandleDatabaseGeneration::pointcloudCallback_2, this);
-	
-	ros::Duration(1).sleep();
 
+	ros::Duration(1).sleep();
 	ros::Rate loop_rate(10);
 	while (ros::ok())
 	{

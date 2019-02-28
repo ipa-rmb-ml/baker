@@ -1,6 +1,6 @@
 #include "ipa_door_handle_segmentation.h"
 #include "ipa_template_generation.h"
-#include "ipa_door_handle_template_alignment.h"
+
 
 
 DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path_to_point_clouds )
