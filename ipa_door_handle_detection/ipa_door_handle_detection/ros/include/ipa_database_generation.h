@@ -44,9 +44,13 @@
 #include<fstream>
 #include<dirent.h>
 #include <bits/stdc++.h> 
+#include "sensor_msgs/Image.h"
 
-#define TOPIC_POINT_CLOUD "/camera/depth/points"  
-#define TOPIC_POINT_CLOUD_PATCH "/selected_patch"  
+
+// definition
+#define TOPIC_POINT_CLOUD "/camera/depth/points"  //ROS topic point cloud
+#define TOPIC_POINT_CLOUD_PATCH "/selected_patch" //ROS topic selected patch 
+#define PATH_TO_DIR "/home/rmb-ml/Desktop/DataBase/Model_" 
 
 
 
@@ -61,6 +65,8 @@ public:
 	void pointcloudCallback_1(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);	
 
 	void pointcloudCallback_2(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
+
+
 
 
 

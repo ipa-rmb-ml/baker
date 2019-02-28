@@ -60,6 +60,7 @@ private:
 	double max_dist_1_;
 	double max_dist_2_;
 	double overlap_ratio_;
+	double diag_BB3D_lim_;
 
 	std::string filePathXYZRGB_;
 	std::string filePathNormals_;

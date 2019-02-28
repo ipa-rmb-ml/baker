@@ -71,7 +71,7 @@ public:
 
 	bool  alignCylinderToPointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::Normal>::Ptr input_point_cloud_normals, pcl::ModelCoefficients::Ptr plane_coeff);
 
-	double checkOrientationAndGeometryOfCylinder(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
+	double checkOrientationAndGeometry(pcl::ModelCoefficients::Ptr cylinder_coeff,pcl::ModelCoefficients::Ptr plane_point_cloud_indices);
 
 	pcaInformation calculatePCA(pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud);
 
@@ -87,9 +87,12 @@ public:
 	// used to project cluster points on detected plane to remove all addition points of the point cloud
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr projectPointsOnPlane(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_points,pcl::ModelCoefficients::Ptr plane_coeff);
 
+	bool checkBB3DOrientation(Eigen::Matrix4f,pcl::ModelCoefficients::Ptr cylinder_coeff);
+
+
+
+
 private:
-
-
 // filter points by distance
 double min_point_to_plane_dist_;
 double max_point_to_plane_dist_;
@@ -110,6 +113,8 @@ int max_cluster_size_;
 
 double max_diff_norm_axis_;
 double inlier_ratio_thres_;
+
+double angle_thres_x_;
 
 };
 

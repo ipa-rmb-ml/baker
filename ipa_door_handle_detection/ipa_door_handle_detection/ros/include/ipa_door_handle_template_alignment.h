@@ -111,6 +111,8 @@ Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlign
 
 std::vector<int> estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2, double max_dist, double overlap_ratio);
 
+// hardcoded values for ipa_database_generation and ipa_door_handle_template_alignment -> later create .CSV with desired parameters and put in into to directory
+static std::string getFilePathFromParameter(int dist, int angle_1, int angle_2);
 
 
 private:
