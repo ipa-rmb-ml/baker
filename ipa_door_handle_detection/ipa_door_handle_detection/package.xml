@@ -25,6 +25,10 @@
 	<depend>tf</depend>
 	<depend>tf_conversions</depend>
 
+	<export>
+	  <publish_selected_patch plugin="${prefix}/plugin_description.xml" />
+	</export>
+
 	
 
 </package>
