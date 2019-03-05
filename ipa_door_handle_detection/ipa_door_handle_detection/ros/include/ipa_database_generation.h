@@ -48,11 +48,9 @@
 
 
 // definition
-#define TOPIC_POINT_CLOUD "/camera/depth/points"  //ROS topic point cloud
+#define TOPIC_POINT_CLOUD "/pico/flexx/points"  //ROS topic point cloud
 #define TOPIC_POINT_CLOUD_PATCH "/selected_patch" //ROS topic selected patch 
-#define PATH_TO_DIR "/home/rmb-ml/Desktop/DataBase/Model_" 
-
-
+#define PATH_TO_DIR "test"
 
 class DoorhandleDatabaseGeneration
 {
@@ -66,9 +64,7 @@ public:
 
 	void pointcloudCallback_2(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);
 
-
-
-
+	std::string getFilePathFromParameter(int dist, int angle_XZ, int angle_YZ);
 
 private:
 	ros::Publisher pub_;

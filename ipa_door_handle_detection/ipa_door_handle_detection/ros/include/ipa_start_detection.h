@@ -36,8 +36,7 @@
 
 #include <boost/thread/mutex.hpp>
 
-
-#define TOPIC_POINT_CLOUD_IN "/camera/depth/points"
+#define TOPIC_POINT_CLOUD_IN "/pico/flexx/points"
 #define TOPIC_POINT_CLOUD_OUT "/point_cloud_output"
 
 // creates vector with pointclouds where each represents a cluster idintified by region growing
@@ -50,6 +49,9 @@ public:
 	void initCameraNode(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg);
 
 	void pointcloudCallback(const sensor_msgs::PointCloud2::ConstPtr& point_cloud_msg);	
+
+	std::string CAMERA_LINK;
+	std::string PATH_TO_DIR;
 
 private:
 	ros::Publisher pub_;
