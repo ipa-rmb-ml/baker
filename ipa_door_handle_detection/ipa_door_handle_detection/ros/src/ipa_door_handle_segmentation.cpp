@@ -139,8 +139,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointCloudSegmentation::minimizePointClou
 		double point2plane_distance =  pcl::pointToPlaneDistance (pp_PC, plane_coeff->values[0], plane_coeff->values[1], plane_coeff->values[2], plane_coeff->values[3]);
 
 		// add DIN information to ppoint handle
-		// robots distance 
-		if ( pp_PC.z < max_door_robot_)
+		// take only values in front of the door
+		if ( pp_PC.z < plane_coeff->values[3])
 		{
 			if ((point2plane_distance > min_point_to_plane_dist_) && (point2plane_distance < max_point_to_plane_dist_))
 			{

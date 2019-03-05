@@ -8,11 +8,11 @@
 StartHandleDetection::StartHandleDetection(ros::NodeHandle nh, sensor_msgs::PointCloud2::Ptr point_cloud_out_msg) :
 nh_(nh), point_cloud_out_msg_(point_cloud_out_msg)
 {
-	filePathXYZRGB_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCAXYZRGB/"; // only for testing -> change later
-	filePathNormals_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/"; 
-	filePathFeatures_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
-	filePathPCATransformations_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCATrafo/";
-	filePathBBInformations_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataBB/";
+	filePathXYZRGB_ = PATH_TO_DIR + "/templateDataPCAXYZRGB/"; // only for testing -> change later
+	filePathNormals_ = PATH_TO_DIR + "/templateDataNormals/"; 
+	filePathFeatures_ = PATH_TO_DIR + "/templateDataFeatures/";
+	filePathPCATransformations_ = PATH_TO_DIR +"/templateDataPCATrafo/";
+	filePathBBInformations_ = PATH_TO_DIR +"/templateDataBB/";
 
 	// correspondence estimation function
 	max_dist_1_ = 0.01; //first crit
@@ -301,7 +301,7 @@ void StartHandleDetection::pointcloudCallback(const sensor_msgs::PointCloud2::Co
 	}
 			*published_pc+= *template_pca;
 			pcl::toROSMsg(*published_pc, *point_cloud_out_msg_);
-			point_cloud_out_msg_->header.frame_id = "camera_link";
+			point_cloud_out_msg_->header.frame_id = CAMERA_LINK;
 			pub_.publish(point_cloud_out_msg_);
 }
 // end void callback

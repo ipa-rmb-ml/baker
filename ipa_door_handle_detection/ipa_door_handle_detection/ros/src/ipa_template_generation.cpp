@@ -1,17 +1,18 @@
 #include "ipa_door_handle_segmentation.h"
 #include "ipa_template_generation.h"
-
+#include "ipa_door_handle_template_alignment.h"
 
 
 DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path_to_point_clouds )
 {
 
-	targetPathXYZRGB_  = "/home/rmb-ml/Desktop/PointCloudData/templateDataXYZRGB/";
-	targetPathNormals_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataNormals/";
-	targetPathFeatures_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataFeatures/";
-	targetPathPCA_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCAXYZRGB/";
-	targetPathEigen_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataPCATrafo/";
-	targetPathBB_ = "/home/rmb-ml/Desktop/PointCloudData/templateDataBB/";
+	TEMPLATE_PATH_ 		= "/home/rmb-ml/Desktop/PointCloudData"
+	targetPathXYZRGB_  	= TEMPLATE_PATH_ + "/templateDataXYZRGB/";
+	targetPathNormals_ 	= TEMPLATE_PATH_ + "/templateDataNormals/";
+	targetPathFeatures_ = TEMPLATE_PATH_ + "/templateDataFeatures/";
+	targetPathPCA_ 		= TEMPLATE_PATH_ + "/templateDataPCAXYZRGB/";
+	targetPathEigen_	= TEMPLATE_PATH_ + "/templateDataPCATrafo/";
+	targetPathBB_ 		= TEMPLATE_PATH_ + "/templateDataBB/";
 
 	generateTemplatePCLFiles(file_path_to_point_clouds);
 }
