@@ -3,18 +3,63 @@
 #include "ipa_door_handle_template_alignment.h"
 
 
-DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path_to_point_clouds )
+
+void DoorHandleTemplateGeneration::StartTemplateGeneration(std::string file_path_to_point_clouds)
 {
 
-	TEMPLATE_PATH_ 		= "/home/rmb-ml/Desktop/PointCloudData"
-	targetPathXYZRGB_  	= TEMPLATE_PATH_ + "/templateDataXYZRGB/";
-	targetPathNormals_ 	= TEMPLATE_PATH_ + "/templateDataNormals/";
-	targetPathFeatures_ = TEMPLATE_PATH_ + "/templateDataFeatures/";
-	targetPathPCA_ 		= TEMPLATE_PATH_ + "/templateDataPCAXYZRGB/";
-	targetPathEigen_	= TEMPLATE_PATH_ + "/templateDataPCATrafo/";
-	targetPathBB_ 		= TEMPLATE_PATH_ + "/templateDataBB/";
+std::string handle_type;
 
-	generateTemplatePCLFiles(file_path_to_point_clouds);
+DIR *pDIR;
+ struct dirent *entry;
+    if(pDIR=opendir(file_path_to_point_clouds.c_str()))
+	{
+        while(entry = readdir(pDIR))
+		{
+
+          if( strcmp(entry->d_name,file_path_to_point_clouds.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, ".") != 0  )				
+			{
+				handle_type = entry->d_name;
+				std::cout<< "Database Generation for Handle Type: " << handle_type<<std::endl;
+				DoorHandleTemplateGeneration DoorHandleTemplateGeneration(file_path_to_point_clouds,handle_type);
+			}
+		}
+	}	
+}
+
+DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path_to_point_clouds, std::string handle_type)
+{
+
+	TEMPLATE_PATH_ 		= file_path_to_point_clouds + handle_type + "/";
+	BASE_PATH_ 			= "/home/rmb-ml/Desktop/TemplateDataBase" ;
+	targetPathXYZRGB_  	= BASE_PATH_ + "/templateDataXYZRGB/" + handle_type;
+	targetPathPCA_ 		= BASE_PATH_ + "/templateDataPCAXYZRGB/" + handle_type;
+	targetPathEigen_	= BASE_PATH_ + "/templateDataPCATrafo/" + handle_type;
+	targetPathBB_ 		= BASE_PATH_ + "/templateDataBB/" + handle_type;
+	targetPathFeatures_ = BASE_PATH_ + "/DataSceneryFeatures/" + handle_type;
+
+
+	// create directory
+
+	createDirectory(targetPathXYZRGB_);
+	createDirectory(targetPathPCA_);
+	createDirectory(targetPathEigen_);
+	createDirectory(targetPathBB_);
+	createDirectory(targetPathFeatures_);
+
+	generateTemplatePCLFiles(TEMPLATE_PATH_,handle_type);
+}
+
+
+void DoorHandleTemplateGeneration::createDirectory(std::string path_to_dir)
+{
+
+	const char* path = path_to_dir.c_str();
+	boost::filesystem::path dir(path);
+	if(boost::filesystem::create_directory(dir))
+	{
+	}
+
+
 }
 
 // OFFLINE PART -> TEMPLATE GENERATION	
@@ -31,6 +76,7 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 
 	int min = 0;
 	int max = 150;
+
 	
 	// avoid crashing
 	if(clusters.size() > 0)
@@ -67,13 +113,12 @@ DoorHandleTemplateGeneration::DoorHandleTemplateGeneration(std::string file_path
 		return clusterVec_pc;
 
 	}; //end if
-    
-	std::cout << "No cluster found"<< std::endl;
+
 	return clusterVec_pc; 
 }
 
 
-void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std:: string file_path_to_point_clouds)
+void  DoorHandleTemplateGeneration::generateTemplatePCLFiles(std:: string TEMPLATE_PATH_, std::string handle_type)
 {
 
 PointCloudSegmentation seg;
@@ -92,116 +137,170 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl:
 
  DIR *pDIR;
  struct dirent *entry;
-    if(pDIR=opendir(file_path_to_point_clouds.c_str()))
+    if(pDIR=opendir(TEMPLATE_PATH_.c_str()))
 	{
-        while(entry = readdir(pDIR)){
+        while(entry = readdir(pDIR))
+		{
 
-          if( strcmp(entry->d_name,file_path_to_point_clouds.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, ".") != 0  )				
+          if( strcmp(entry->d_name,TEMPLATE_PATH_.c_str()) != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, ".") != 0  )				
 			{
-			std::string filePathPCDRead = file_path_to_point_clouds + entry->d_name;
-			std::string filePathPCDWriteXYZRGB = targetPathXYZRGB_ + entry->d_name;
-			std::string filePathPCDWriteNormals = targetPathNormals_ + entry->d_name;
-			std::string filePathPCDWriteFeatures = targetPathFeatures_ + entry->d_name;
-			std::string filePathPCDWritePCAXYZ = targetPathPCA_ + entry->d_name;
+		
+			std::string filePathPCDRead = TEMPLATE_PATH_ ;
 
-			boost::filesystem::path p(filePathPCDRead);
-			std::string templateName = p.stem().c_str(); // get filename without extension
+			std::string full_pcd_path = filePathPCDRead + entry->d_name;
 
-			std::string filePathTXTWriteEigen = targetPathEigen_ + templateName + ".txt";
-			std::string filePathTXTWriteBB = targetPathBB_ + templateName + ".txt";
+			boost::filesystem::path pathObj(full_pcd_path);
+			std::string templateName =  pathObj.stem().string();
 
-				if (pcl::io::loadPCDFile<pcl::PointXYZ> (filePathPCDRead, *template_cloud) == -1) //* load the file
-					{
-						PCL_ERROR ("Couldn't read PCD file. \n");
-					}
-			planeInformation planeData = seg.detectPlaneInPointCloud(template_cloud);
+			std::string filePathPCDWriteXYZRGB = targetPathXYZRGB_  + "/" + templateName;
+			std::string filePathPCDWriteNormals = targetPathNormals_  + "/" + templateName;
+			std::string filePathPCDWriteFeatures = targetPathFeatures_  + "/" + templateName;
+			std::string filePathPCDWritePCAXYZ = targetPathPCA_  + "/" + templateName;
+			std::string filePathFeatureWrite = targetPathFeatures_ + "/" + templateName;
 
-			// change color of template cloud
+			 // get filename without extension
 
-			pcl::ModelCoefficients::Ptr plane_coeff = planeData.plane_coeff;
-			pcl::PointIndices::Ptr plane_pc_indices = planeData.plane_point_cloud_indices;
+			std::string filePathTXTWriteEigen = targetPathEigen_ + "/" + templateName + ".txt";
+			std::string filePathTXTWriteBB = targetPathBB_ + "/" + templateName + ".txt";
 
-			template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc_indices,plane_coeff);
-			template_cloud_reduced_rgb = seg.changePointCloudColor(template_cloud_reduced);
+			if (pcl::io::loadPCDFile<pcl::PointXYZ> (full_pcd_path, *template_cloud) == -1) //* load the file
+				{
+					PCL_ERROR ("Couldn't read PCD file. \n");
+				}
 
-				if (template_cloud_reduced->size() > 0)
-					{
-					door_handle_cluster=seg.findClustersByRegionGrowing(template_cloud_reduced_rgb);
-					// only one object suppose to be the handle
-					if (door_handle_cluster.size()== 1)
-						{
-						template_cluster_vec= generateTemplateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
-						// calculate xyzrgb point cloud
-						*template_cloud_reduced = *template_cluster_vec[0];
-						template_cloud_reduced->width = 1;
-						template_cloud_reduced->height = template_cloud_reduced->points.size();
 
-						// downsample point cloud for better performance 
-						template_cloud_reduced=featureObj.downSamplePointCloud(template_cloud_reduced);
-											
-						// calculate normals based on template_cloud_reduced
-						template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
-											
-						//calculate features based on template_cloud_reduced
-						template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
+			/// TEMPLATE MATCHING APPROACH 
 
-						pcaInformation pcaData  = seg.calculatePCA(template_cloud_reduced);
-						Eigen::Matrix4f transform_pca = pcaData.pca_transformation;
-						Eigen::Vector3f bb_3D = pcaData.bounding_box_3D;
+				// template pointclouds got the "ROI extension"
+				if(full_pcd_path.find("ROI") != std::string::npos)
+				{
 
-						pcl::transformPointCloud(*template_cloud_reduced, *template_cloud_pca, transform_pca);
-											
-						std::cout << "Writing XYZ..." << std::endl;
-						pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB,*template_cloud_reduced);
+				planeInformation planeData = seg.detectPlaneInPointCloud(template_cloud);
 
-						std::cout << "Writing Normals..." << std::endl;
-						pcl::io::savePCDFileASCII (filePathPCDWriteNormals,*template_cloud_normals);
+				// change color of template cloud
 
-						std::cout << "Writing PCA Data..." << std::endl;
-						pcl::io::savePCDFileASCII (filePathPCDWritePCAXYZ,*template_cloud_pca);
+				pcl::ModelCoefficients::Ptr plane_coeff = planeData.plane_coeff;
+				pcl::PointIndices::Ptr plane_pc_indices = planeData.plane_point_cloud_indices;
 
-						std::cout << "Writing Features..." << std::endl;	
-						pcl::io::savePCDFileASCII (filePathPCDWriteFeatures,*template_cloud_features);
+				template_cloud_reduced=seg.minimizePointCloudToObject(template_cloud,plane_pc_indices,plane_coeff);
+		
+				template_cloud_reduced_rgb = seg.changePointCloudColor(template_cloud_reduced,255,0,0);
 
-						std::cout << "Writing PCA Transformation..." << std::endl;	
-						std::ofstream fout_pca;
-						fout_pca.open(filePathTXTWriteEigen.c_str());
-						fout_pca <<	"\n";
-							for (int r = 0; r < transform_pca.rows(); r++)
+
+						if (template_cloud_reduced_rgb->points.size() > 0)
+							{
+							door_handle_cluster=seg.findClustersByRegionGrowing(template_cloud_reduced_rgb);
+
+							// only one object suppose to be the handle
+							if (door_handle_cluster.size()== 1)
 								{
-								for (int c = 0; c <transform_pca.cols();c++)
-									{
-									fout_pca <<transform_pca(r,c) << "\n";
+								template_cluster_vec= generateTemplateAlignmentObject(door_handle_cluster,template_cloud_reduced,plane_coeff);
+								// calculate xyzrgb point cloud
+								*template_cloud_reduced = *template_cluster_vec[0];
+								template_cloud_reduced->width = 1;
+								template_cloud_reduced->height = template_cloud_reduced->points.size();
+
+								// downsample point cloud for better performance 
+								//template_cloud_reduced=featureObj.downSamplePointCloud(template_cloud_reduced);
+													
+								// calculate normals based on template_cloud_reduced
+								template_cloud_normals = featureObj.calculateSurfaceNormals(template_cloud_reduced);
+													
+								//calculate features based on template_cloud_reduced
+								template_cloud_features = featureObj.calculate3DFeatures(template_cloud_reduced,template_cloud_normals);
+
+								pcaInformation pcaData  = seg.calculatePCA(template_cloud_reduced);
+								Eigen::Matrix4f transform_pca = pcaData.pca_transformation;
+								Eigen::Vector3f bb_3D = pcaData.bounding_box_3D;
+
+								pcl::transformPointCloud(*template_cloud_reduced, *template_cloud_pca, transform_pca);
+
+													
+								//std::cout << "Writing XYZ..." << std::endl;
+								pcl::io::savePCDFileASCII (filePathPCDWriteXYZRGB + ".pcd",*template_cloud_reduced);
+
+								//std::cout << "Writing PCA Data..." << std::endl;
+								pcl::io::savePCDFileASCII (filePathPCDWritePCAXYZ + ".pcd" ,*template_cloud_pca);
+
+								//std::cout << "Writing PCA Transformation..." << std::endl;	
+								std::ofstream fout_pca;
+								fout_pca.open(filePathTXTWriteEigen.c_str());
+								fout_pca <<	"\n";
+									for (int r = 0; r < transform_pca.rows(); r++)
+										{
+										for (int c = 0; c <transform_pca.cols();c++)
+											{
+											fout_pca <<transform_pca(r,c) << "\n";
+											}
 									}
+
+								// std::cout << "Writing PCA BB Information..." << std::endl;	
+								std::ofstream fout_BB;
+								fout_BB.open(filePathTXTWriteBB.c_str());
+								fout_BB <<	"\n";
+									for (int r = 0; r < bb_3D.size(); r++)
+										{
+										fout_BB <<bb_3D(r) << "\n";
+										}	
+								}	// end if cluster number check 			
+						    } // end if point cloud size check
+							else
+							{
+								ROS_WARN("No Point Cloud Data!");
+								std::cout<<"Check "<<full_pcd_path<<std::endl;
 							}
 
-						std::cout << "Writing PCA BB Information..." << std::endl;	
-						std::ofstream fout_BB;
-						fout_BB.open(filePathTXTWriteBB.c_str());
-						fout_BB <<	"\n";
-							for (int r = 0; r < bb_3D.size(); r++)
-								{
-								fout_BB <<bb_3D(r) << "\n";
-								}					
-					}
+	
+						// PCD files storing point clouds for template matching contain "ROI" string in their file name
+					
 
-				}
-			else
+						// ============== MACHINE LEARNING DATABASE+
+
+						//std::cout << "Writing Features..." << std::endl;	
+						//pcl::io::savePCDFileASCII (filePathPCDWriteFeatures + ".pcd",*template_cloud_features);
+
+						//std::cout << "Writing Normals..." << std::endl;
+						//pcl::io::savePCDFileASCII (filePathPCDWriteNormals + ".pcd",*template_cloud_normals);
+				} // end if : check if string contains roi	
+
+				else
 				{
-				std::cout << "Not sufficient points for normal estimation." << std::endl;
+				std::string path = filePathFeatureWrite + ".txt";
+				std::ofstream test;
+				test.open(path.c_str());
+				test <<	"\n";
+				test<<"working";
+					
+				// To be completed for the Machine Learning approach 
+
+
 				}
 			}
         } //end while
         closedir(pDIR);
     } //end if
+    else
+    {
+    ROS_WARN("Check directory path");
+    }	
 }
 
 
 // =================================================0
 int main(int argc, char **argv)
 {		
-	std::string file_path_to_point_clouds = "/home/rmb-ml/Desktop/PointCloudData/unprocessed/";
-	DoorHandleTemplateGeneration DoorHandleTemplateGeneration(file_path_to_point_clouds);
+	// base path to folder containing the model type folders
+	std::string file_path_to_point_clouds = "/home/rmb-ml/Desktop/TemplateDataBase/unprocessed/";
+
+	// folder structure:
+	// type 001
+	// type 002
+	// type 003
+
+	// creating Root
+
+
+	DoorHandleTemplateGeneration::StartTemplateGeneration(file_path_to_point_clouds);
 
 	return 0;
 }

@@ -80,6 +80,14 @@ struct icpInformation
  double icp_fitness_score;
 };
 
+struct templateInformation
+{
+ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > doorhandle_template_vec;
+ std::vector<std::string> handle_type_name_vec;
+
+};
+
+
 
 // based on PointCloudDataImport class 
 // generating the template databasa for various door handle types 
@@ -90,11 +98,11 @@ public:
 FeatureCloudGeneration();
 
 // file load different types
-std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> >  loadGeneratedTemplatePCLXYZ(std::string filePath);
-std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >  loadGeneratedTemplatePCLFeatures(std::string filePath);
+templateInformation loadGeneratedTemplatePCLXYZ(std::string filePath,std::string file_name);
+std::vector<pcl::PointCloud<pcl::FPFHSignature33>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::FPFHSignature33>::Ptr> >  loadGeneratedTemplatePCLFeatures(std::string filePath,std::string file_name);
 std::vector<pcl::PointCloud<pcl::Normal>::Ptr,Eigen::aligned_allocator<pcl::PointCloud<pcl::Normal>::Ptr> >  loadGeneratedTemplatePCLNormals(std::string filePath);
-std::vector<Eigen::Matrix4f> loadGeneratedPCATransformations(std::string filePath);
-std::vector<Eigen::Vector3f> loadGeneratedBBInformation(std::string filePath);
+std::vector<Eigen::Matrix4f> loadGeneratedPCATransformations(std::string filePath,std::string file_name);
+std::vector<Eigen::Vector3f> loadGeneratedBBInformation(std::string filePath,std::string file_name);
 
 icpInformation icpBasedTemplateAlignment(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud,pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_template_point_cloud);
 
@@ -109,11 +117,10 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr downSamplePointCloud(pcl::PointCloud<pcl:
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr,
 Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> > generateAlignmentObject(std::vector <pcl::PointIndices> clusters,pcl::PointCloud<pcl::PointXYZRGB>::Ptr reduced_pc, pcl::ModelCoefficients::Ptr plane_coeff);
 
-std::vector<int> estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2, double max_dist, double overlap_ratio);
+double estimateCorrespondences(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_1, pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_point_cloud_2, double max_dist, double overlap_ratio);
 
 // hardcoded values for ipa_database_generation and ipa_door_handle_template_alignment -> later create .CSV with desired parameters and put in into to directory
 static std::string getFilePathFromParameter(int dist, int angle_1, int angle_2);
-
 
 private:
 double alignment_eps_; //
